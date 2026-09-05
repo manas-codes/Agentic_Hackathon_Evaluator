@@ -30,7 +30,7 @@
 <div class="card sc-head">
   <div class="sc-top">
     <div class="sc-id">
-      <h2>{{ card.title or card.folder_name }}</h2>
+      <h2>{{ card.title or 'Title not supplied' }}</h2>
       <div class="sc-meta">
         {{ formation_labels.get(card.formation_category, card.formation_category) }}
         &middot; {{ theme_labels.get(card.thematic_area, card.thematic_area) }}

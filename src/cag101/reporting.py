@@ -160,6 +160,8 @@ def build_scorecard(
         ref=submission.ref,
         submission_id=submission.id,
         title=submission.title or "",
+        # folder_name is a Google Drive export archive - "Foo-20260903T143302Z-1-001".
+        # Never show it as a submission title.
         folder_name=submission.folder_name,
         status=submission.status,
         status_detail=submission.status_detail or "",
@@ -737,12 +739,18 @@ def build_overview(
     ov.by_theme = _labelled_counts(cards, "thematic_area", THEME_LABELS)
     ov.by_formation = _labelled_counts(cards, "formation_category", FORMATION_LABELS)
     ov.by_stage = _labelled_counts(cards, "development_stage", STAGE_LABELS)
-    ov.by_completeness = dict(
-        Counter(c.flags.get("completeness", "not assessed") for c in cards)
-    )
-    ov.by_evidence_strength = dict(
-        Counter(c.flags.get("evidence_strength", "not assessed") for c in cards)
-    )
+    ov.by_completeness = {
+        COMPLETENESS_LABELS.get(k, k.replace("_", " ").capitalize()): v
+        for k, v in Counter(
+            c.flags.get("completeness", "not assessed") for c in cards
+        ).items()
+    }
+    ov.by_evidence_strength = {
+        EVIDENCE_LABELS.get(k, k.replace("_", " ").capitalize()): v
+        for k, v in Counter(
+            c.flags.get("evidence_strength", "not assessed") for c in cards
+        ).items()
+    }
 
     ov.cluster_count = session.scalar(select(func.count()).select_from(Cluster)) or 0
     ov.clustered_submissions = (
@@ -781,6 +789,25 @@ def build_overview(
             "finished_at": run.finished_at,
         }
     return ov
+
+
+# Enum values are storage keys, not labels. They were rendered verbatim on the
+# overview - "minor_gaps", "claimed_only" - beside properly cased labels in the
+# neighbouring cards.
+COMPLETENESS_LABELS = {
+    "complete": "Complete",
+    "minor_gaps": "Minor gaps",
+    "incomplete": "Incomplete",
+    "not assessed": "Not assessed",
+}
+
+EVIDENCE_LABELS = {
+    "claimed_only": "Claimed only",
+    "tested_no_results": "Tested, no results",
+    "piloted_with_results": "Piloted with results",
+    "deployed_with_data": "Deployed with data",
+    "not assessed": "Not assessed",
+}
 
 
 def _labelled_counts(

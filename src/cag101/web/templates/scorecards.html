@@ -12,7 +12,7 @@
      compete with the filters for a single line and are the first thing to fall
      out of frame when the panel is open. Here they wrap instead of clipping. #}
   <div style="display:flex; gap:0.5rem; align-items:center">
-    <a class="btn secondary" href="/export.csv?{{ query_string }}">Download CSV</a>
+    <a class="btn secondary" href="/export.csv{% if query_string %}?{{ query_string }}{% endif %}">Download CSV</a>
     <a class="btn" href="/export.xlsx">Download Excel</a>
   </div>
 </div>
@@ -53,7 +53,7 @@
   </div>
 
   <p class="tiny muted" style="margin: 0.7rem 0 0">
-    Showing <strong>{{ cards|length }}</strong> of {{ total_count }} submission(s).
+    Showing <strong>{{ cards|length }}</strong> of {{ total_count }} submissions.
     Each criterion cell carries <strong>Evidence</strong> for the reasoning and
     the quoted material behind the mark, and <strong>Edit</strong> to amend it
     against your name.
@@ -63,18 +63,19 @@
 {# ---- the table --------------------------------------------------------- #}
 <div class="table-wrap pinned">
   <table>
+    <caption class="sr">Scorecards: reference, submission, four criterion scores out of 25 each, and the total out of 100.</caption>
     <thead>
       <tr>
-        <th class="col-ref">Ref</th>
-        <th class="col-title">Submission</th>
+        <th scope="col" class="col-ref">Ref</th>
+        <th scope="col" class="col-title">Submission</th>
         {% for criterion in rubric.criteria %}
-        <th class="crit" style="--k: var(--c-{{ CRITERION_HUE.get(criterion.key, 'innovation') }})"
+        <th scope="col" class="crit" style="--k: var(--c-{{ CRITERION_HUE.get(criterion.key, 'innovation') }})"
             title="{{ criterion.name }} — {{ criterion.scheme_focus }}">
           <span class="cn">{{ CRITERION_SHORT.get(criterion.key, criterion.name) }}</span>
           <span class="cm">out of {{ criterion.weight }}</span>
         </th>
         {% endfor %}
-        <th class="num total-head">Total<br><span class="cm" style="font-weight:450">out of 100</span></th>
+        <th scope="col" class="num total-head">Total<br><span class="cm" style="font-weight:450">out of 100</span></th>
       </tr>
     </thead>
     <tbody>
@@ -88,7 +89,7 @@
           {% endif %}
         </td>
         <td class="col-title">
-          <a href="/scorecards/{{ card.ref }}">{{ card.title or card.folder_name }}</a>
+          <a href="/scorecards/{{ card.ref }}">{{ card.title or 'Title not supplied' }}</a>
           <div class="tiny muted" style="margin-top:0.2rem">
             {{ formation_labels.get(card.formation_category, card.formation_category) }}
             {%- if card.thematic_area and card.thematic_area != 'unclear' %} · theme {{ card.thematic_area }}{% endif %}
@@ -139,7 +140,7 @@
             <div class="acts">
               <button class="why" type="button"
                       data-why="/scorecards/{{ card.ref }}/why/{{ criterion.key }}"
-                      aria-label="Evidence behind the {{ criterion.name }} score of {{ '%.1f'|format(view.effective_score) }} out of {{ criterion.weight }} for {{ card.ref }}">
+                      aria-label="Evidence behind the {{ criterion.name }} score of {{ '%.1f'|format(view.effective_score) }} out of {{ criterion.weight }} for {{ card.ref }}{% if view.is_overridden %}, amended from {{ '%.1f'|format(view.machine_score) }}{% endif %}">
                 Evidence
               </button>
               {% if can_override %}
@@ -180,8 +181,8 @@
 </div>
 
 <p class="tiny muted mt">
-  Reference and submission stay pinned while the score columns scroll. A cream
-  row scores below {{ QUALIFY_AT|int }} &mdash; a reading aid, not a rejection,
+  Reference and submission stay pinned while the score columns scroll. Cream rows scored below
+  {{ QUALIFY_AT|int }} &mdash; a reading aid, not a rejection,
   since the scheme sets no cut-off. A green row has been approved by an
   evaluator. Cells show the effective score: the amended mark where one exists,
   otherwise the assessed one.

@@ -140,7 +140,7 @@
                   stroke-dasharray="{{ slice.dash }} {{ slice.gap }}"
                   stroke-dashoffset="0"
                   style="--rot: {{ slice.rot }}deg; --len: {{ slice.len }}">
-            <title>{{ slice.label }}: {{ slice.count }} submission(s), {{ slice.pct }}%</title>
+            <title>{{ slice.label }}: {{ slice.count }} submissions, {{ slice.pct }}%</title>
           </circle>
           {% endif %}
           {% endfor %}
@@ -162,8 +162,7 @@
       </div>
     </div>
     <p class="tiny muted mt mb0">
-      Darker slices sit higher on the scale. Five bands rather than individual
-      scores, because five bins read cleanly at this sample size and ten do not.
+      Darker slices sit higher on the scale.
     </p>
   </div>
 
@@ -193,9 +192,7 @@
       {% endfor %}
     </div>
     <p class="tiny muted mt mb0">
-      The faint block behind each bar is the 25-point maximum. A criterion low
-      across the whole intake usually means the form question was widely
-      misunderstood, not that every idea was weak on it.
+      The faint block behind each bar is the 25-point maximum.
     </p>
   </div>
 </div>
@@ -204,7 +201,7 @@
   <h2>No submissions evaluated yet</h2>
   <p class="small">
     {% if ov.total_submissions %}
-      {{ ov.total_submissions }} submission(s) are ingested but none have been
+      {{ ov.total_submissions }} submissions are ingested but none have been
       scored. Run the scoring stage from the command line:
     {% else %}
       No submissions have been ingested. Place one folder per submission in

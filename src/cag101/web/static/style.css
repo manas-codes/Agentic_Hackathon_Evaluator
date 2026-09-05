@@ -82,7 +82,7 @@
   --cream: #ffffff;
   --ink-1: #0f1b2a;
   --ink-2: #5b6675;
-  --ink-3: #8b97a5;
+  --ink-3: #667484;   /* 4.78:1 on white; #8b97a5 was 2.97:1 */
   --line: #e6eaef;
   --grid: #eef2f5;
 
@@ -91,6 +91,11 @@
   --r-md: 10px;
   --r-lg: 16px;
   --r-full: 999px;
+  /* Text green. --p-500 is the fill colour and reaches only 3.77:1 as text on
+     white, so anything rendered as words uses --p-text instead: 6.65:1 on
+     white and 6.4:1 on both row tints. Fills and bars keep --p-500. */
+  --p-text: #036a48;
+
   --sh-1: 0 1px 2px rgba(15, 27, 42, 0.04), 0 1px 3px rgba(15, 27, 42, 0.06);
   --sh-2: 0 6px 16px rgba(15, 27, 42, 0.10), 0 2px 5px rgba(15, 27, 42, 0.06);
   --sh-3: 0 14px 36px rgba(15, 27, 42, 0.18), 0 2px 8px rgba(15, 27, 42, 0.10);
@@ -104,7 +109,7 @@
 
   /* -- type scale -- */
   --f-ui: "InterVar", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --t-micro: 0.6875rem;
+  --t-micro: 0.75rem;   /* 11px floor, was 11px-and-below in places */
   --t-tiny: 0.75rem;
   --t-sm: 0.8125rem;
   --t-base: 0.875rem;
@@ -129,7 +134,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--p-500); text-decoration: none; }
+a { color: var(--p-text); text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 2px; }
 
 :focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
@@ -170,14 +175,14 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -0.011em; }
   font-size: 1.02rem; color: var(--ink-1); line-height: 1.15; letter-spacing: -0.01em;
 }
 .rail .brand .subtitle {
-  font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.14em;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em;
   color: var(--ink-3); font-weight: 680; margin-top: 0.18rem;
 }
 .rail nav { display: grid; gap: 0.18rem; }
 /* the handle is chrome: it sits on the rail's edge and takes no row */
 .rail > .railtoggle { position: absolute; }
 .rail .navlabel {
-  font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
   color: var(--ink-3); font-weight: 700; padding: 0 0.55rem 0.35rem;
 }
 .rail a.item {
@@ -211,7 +216,7 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -0.011em; }
   overflow: hidden;
 }
 .rail .whoami > div { min-width: 0; }
-.rail .whoami .rl { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.08em;
+.rail .whoami .rl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
                     color: var(--ink-3); font-weight: 650; }
 .rail .whoami button.link {
   margin-left: auto; background: none; border: none; padding: 0.2rem;
@@ -289,6 +294,16 @@ main { padding: 1.5rem 1.7rem 3.5rem; max-width: 1500px; }
 /* Narrow screens. Committee members do open this on a phone in a meeting, and
    at 375px the desktop padding plus a 168px tile minimum pushed the second
    column off the right edge. */
+/* Below 720px the two left-pinned columns plus the pinned Total consume more
+   than the viewport, so the four criterion columns end up permanently hidden
+   underneath them - the scores become unreachable on a phone. Only the Ref
+   stays pinned there. */
+@media (max-width: 720px) {
+  .table-wrap.pinned th.col-title,
+  .table-wrap.pinned td.col-title { position: static; min-width: 200px; }
+  .table-wrap.pinned table { min-width: 820px; }
+}
+
 @media (max-width: 560px) {
   main { padding: 1.1rem 0.9rem 3rem; }
   .rail .brand .title, .rail .brand .subtitle { display: none; }
@@ -494,7 +509,7 @@ button, .btn {
   transition: background 120ms ease, border-color 120ms ease;
 }
 button:hover, .btn:hover { background: var(--p-600); border-color: var(--p-600); text-decoration: none; }
-button.secondary, .btn.secondary { background: var(--surface); color: var(--p-500); border-color: var(--line); }
+button.secondary, .btn.secondary { background: var(--surface); color: var(--p-text); border-color: var(--line); }
 button.secondary:hover, .btn.secondary:hover { background: var(--surface-2); border-color: var(--p-200); }
 button.danger { background: var(--surface); color: var(--st-critical-ink); border-color: #eec2c2; }
 button.danger:hover { background: #fbe6e6; border-color: #e2a8a8; }
@@ -611,7 +626,7 @@ td.crit .sv { font-size: var(--t-md); font-weight: 650; color: var(--ink-1); fon
 td.crit .cue { height: 3px; border-radius: var(--r-full); background: var(--grid); margin: 0.32rem auto 0.38rem; width: 46px; overflow: hidden; }
 td.crit .cue > i { display: block; height: 100%; background: var(--k, var(--p-450)); border-radius: var(--r-full); }
 .why {
-  border: 1px solid var(--line); background: var(--surface); color: var(--p-500);
+  border: 1px solid var(--line); background: var(--surface); color: var(--p-text);
   border-radius: var(--r-full); padding: 0.1rem 0.5rem;
   font-size: var(--t-micro); font-weight: 620; cursor: pointer; white-space: nowrap;
 }
@@ -654,7 +669,7 @@ td.crit .acts { display: flex; gap: 0.22rem; justify-content: center; }
   55% { transform: scale(1.06); }
   100% { transform: scale(1); }
 }
-.review-by { display: block; font-size: 9.5px; color: var(--ink-3); margin-top: 0.28rem; }
+.review-by { display: block; font-size: 11px; color: var(--ink-3); margin-top: 0.28rem; }
 
 /* --- edit-score dialog ----------------------------------------------- */
 dialog.edit-sheet { max-width: 480px; }
@@ -747,7 +762,7 @@ ul.sources li {
 }
 ul.sources .q { display: block; }
 ul.sources .src {
-  display: block; margin-top: 0.25rem; font-size: 9.5px; color: var(--ink-3);
+  display: block; margin-top: 0.25rem; font-size: 11px; color: var(--ink-3);
   text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
   word-break: break-word;
 }
@@ -818,7 +833,7 @@ body.login-page { background: #ece7db; }
   margin: 0.85rem 0 0.1rem; color: #1f1f26;
 }
 .login-card .dept {
-  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.19em;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.19em;
   color: var(--lg-brass); font-weight: 650; margin-bottom: 1.5rem;
 }
 .login-card h1 {
@@ -1177,7 +1192,7 @@ dialog.sheet[open]::backdrop { animation: fadeIn var(--t-mid) var(--ease) both; 
   font-size: 1.62rem; font-weight: 680; letter-spacing: -0.028em; color: var(--ink-1);
 }
 .donut .hub .l {
-  font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.1em;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
   color: var(--ink-3); font-weight: 700; margin-top: 0.14rem;
 }
 
@@ -1223,7 +1238,7 @@ dialog.sheet[open]::backdrop { animation: fadeIn var(--t-mid) var(--ease) both; 
 .vbar .cap { margin-top: 0.6rem; text-align: center; }
 .vbar .cap .cn { font-size: var(--t-tiny); font-weight: 600; color: var(--ink-2); }
 .vbar .cap .cp {
-  font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--ink-3); font-weight: 650; margin-top: 0.1rem;
 }
 .vbar:nth-child(2) .fill { animation-delay: 90ms; }

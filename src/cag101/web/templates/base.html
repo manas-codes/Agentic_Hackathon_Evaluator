@@ -117,6 +117,16 @@
 </div>
 
 <script>
+/* Escape closes any open dialog. <dialog> is meant to do this natively via the
+   cancel event, but it did not fire reliably in testing, and a modal a
+   committee member cannot dismiss with Escape is worse than a redundant
+   listener. */
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Escape') return;
+  var open = document.querySelector('dialog[open]');
+  if (open) { ev.preventDefault(); open.close(); }
+});
+
 /* Rail collapse. The preference is per-browser and survives navigation, so an
    evaluator who wants the full table width keeps it on every page. Applied
    before first paint would be better still; it is applied here because the

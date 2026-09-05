@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
@@ -268,6 +269,26 @@ async def unauthorised(request: Request, _exc: HTTPException) -> Response:
     return RedirectResponse(
         f"/login?next={request.url.path}", status_code=HTTP_303_SEE_OTHER
     )
+
+
+@app.exception_handler(RequestValidationError)
+async def malformed_request(request: Request, exc: RequestValidationError) -> Response:
+    """Answer a malformed form post in the shape the dialogs already handle.
+
+    FastAPI's default 422 body is a list of {type, loc, msg, input} objects.
+    The edit and review dialogs render `error`, so they showed nothing useful,
+    and the raw envelope exposes internal field paths to the client.
+    """
+    missing = [
+        str(e.get("loc", ["", ""])[-1])
+        for e in exc.errors()
+        if e.get("type") == "missing"
+    ]
+    if missing:
+        detail = "Missing required field(s): " + ", ".join(sorted(set(missing))) + "."
+    else:
+        detail = "The request was not in the expected format."
+    return JSONResponse({"error": detail}, status_code=400)
 
 
 @app.exception_handler(409)
@@ -601,7 +622,7 @@ def criterion_rationale(request: Request, ref: str, criterion: str) -> Response:
 def set_review_decision(
     request: Request,
     ref: str,
-    decision: str = Form("approved"),
+    decision: str = Form(...),
     note: str = Form(""),
 ) -> Response:
     """Record, or withdraw, an evaluator's sign-off on a submission.
@@ -610,6 +631,10 @@ def set_review_decision(
     a page that may be a hundred rows long and scrolled halfway down.
     """
     user = require_role(request, "evaluator")
+    # `decision` used to default to "approved", so a truncated or malformed
+    # request - an empty body, a dropped field - silently recorded a committee
+    # approval nobody made, attributed to the signed-in evaluator. A sign-off
+    # must be stated explicitly, never inferred from a missing value.
     if decision not in ("approved", "pending"):
         raise HTTPException(status_code=400, detail="Unknown review decision.")
 
@@ -694,6 +719,15 @@ def apply_override(
             raise HTTPException(status_code=404, detail=f"No submission {ref}")
 
         card = build_scorecard(session, submission, rubric, include_evidence=False)
+        # An amendment is a change to an assessed score. On a submission that
+        # was never scored there is nothing to amend: the override used to be
+        # accepted, returning 200 with a total of 0.0, and then appeared
+        # nowhere - the evaluator was told it saved when it had not.
+        if not card.evaluated:
+            return refuse(
+                f"{ref} has not been assessed, so there is no score to amend. "
+                "It must be scored first."
+            )
         view = card.criterion(criterion)
         machine_score = view.machine_score if view else 0.0
 
