@@ -6,6 +6,7 @@ SQLite for the pilot; set paths.database to a postgresql+psycopg:// URL for the
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -21,6 +22,20 @@ _SessionFactory: sessionmaker[Session] | None = None
 
 
 def database_url() -> str:
+    """The database URL.
+
+    DATABASE_URL wins when set, so a deployment can point at Postgres without
+    editing config.yaml. `postgres://` is normalised to the driver-qualified
+    form SQLAlchemy needs — several providers hand out the bare scheme.
+    """
+    env = os.environ.get("DATABASE_URL", "").strip()
+    if env:
+        if env.startswith("postgres://"):
+            env = env.replace("postgres://", "postgresql+psycopg://", 1)
+        elif env.startswith("postgresql://"):
+            env = env.replace("postgresql://", "postgresql+psycopg://", 1)
+        return env
+
     cfg = load_config()
     raw = str(cfg.require("paths.database"))
     if "://" in raw:

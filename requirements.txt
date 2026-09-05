@@ -36,3 +36,7 @@ python-dotenv>=1.0.0
 # --- Optional, install if OCR / video transcription is needed ---
 # pytesseract>=0.3.10    # also needs the Tesseract binary on PATH
 # faster-whisper>=1.0.0  # also needs ffmpeg on PATH
+
+# Postgres driver. Only needed when DATABASE_URL points at Postgres
+# (any hosted deployment); the local SQLite pilot does not use it.
+psycopg[binary]>=3.2

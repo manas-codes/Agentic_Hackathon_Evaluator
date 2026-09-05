@@ -14,6 +14,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 load_dotenv(PROJECT_ROOT / ".env")
 
+# A serverless filesystem is read-only apart from a temp directory, so anything
+# the portal writes at request time (the generated workbook) has to go there.
+# Vercel, AWS Lambda and Google Cloud Functions all set one of these.
+READ_ONLY_FS = bool(
+    os.environ.get("VERCEL")
+    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+    or os.environ.get("K_SERVICE")
+)
+
+
+def writable_root() -> Path:
+    """Where this process may write. The project root, unless it cannot."""
+    if READ_ONLY_FS:
+        return Path(os.environ.get("TMPDIR", "/tmp"))
+    return PROJECT_ROOT
+
 
 class Config:
     """Nested config with dotted lookup: cfg.get("llm.scoring_model")."""
@@ -36,11 +52,19 @@ class Config:
             raise KeyError(f"Required config key missing: {dotted}")
         return value
 
+    # Directories written at request time. On a read-only filesystem these
+    # move to the temp root; the read-only ones (rubrics, static, config) stay
+    # next to the code where the deployment bundle puts them.
+    _WRITABLE_KEYS = {"paths.cache", "paths.exports", "paths.database"}
+
     def path(self, dotted: str) -> Path:
-        """Resolve a configured path relative to the project root."""
+        """Resolve a configured path, honouring the writable root."""
         raw = self.require(dotted)
         p = Path(raw)
-        return p if p.is_absolute() else (self.root / p)
+        if p.is_absolute():
+            return p
+        root = writable_root() if dotted in self._WRITABLE_KEYS else self.root
+        return root / p
 
     @property
     def raw(self) -> dict[str, Any]:
@@ -132,7 +156,17 @@ def session_secret() -> str:
 
 
 def ensure_directories() -> None:
+    """Create the directories this process writes to.
+
+    On a read-only filesystem the submissions directory is not ours to create
+    and is never written to by the portal, so it is skipped rather than raising.
+    """
     cfg = load_config()
-    for key in ("paths.submissions", "paths.cache", "paths.exports"):
+    keys = ("paths.cache", "paths.exports")
+    if not READ_ONLY_FS:
+        keys = ("paths.submissions",) + keys
+    for key in keys:
         cfg.path(key).mkdir(parents=True, exist_ok=True)
-    cfg.path("paths.database").parent.mkdir(parents=True, exist_ok=True)
+    db = cfg.path("paths.database")
+    if "://" not in str(cfg.require("paths.database")):
+        db.parent.mkdir(parents=True, exist_ok=True)

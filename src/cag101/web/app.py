@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -93,12 +94,21 @@ def in_ist(value: datetime | None, fmt: str = "%d-%m-%Y") -> str:
 templates.env.filters["ist"] = in_ist
 
 app = FastAPI(title="CAG 101 Innovation Ideas — Evaluation Portal", docs_url=None, redoc_url=None)
+# Behind a TLS-terminating platform the app itself sees plain HTTP, but the
+# browser is talking HTTPS, so the Secure cookie flag is correct there and only
+# there. Local development over http://127.0.0.1 must not set it or the session
+# cookie is never returned.
+_SECURE_COOKIES = bool(
+    os.environ.get("VERCEL")
+    or os.environ.get("FORCE_HTTPS", "").strip().lower() in {"1", "true", "yes"}
+)
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=session_secret(),
     max_age=int(load_config().get("portal.session_hours", 8)) * 3600,
     same_site="lax",
-    https_only=False,   # set True behind TLS in any real deployment
+    https_only=_SECURE_COOKIES,
 )
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
