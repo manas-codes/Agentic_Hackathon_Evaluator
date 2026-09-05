@@ -14,7 +14,10 @@ evaluations/
 docs/designs/
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.sqlite
+data/*.log
 
 # Python
 __pycache__/
