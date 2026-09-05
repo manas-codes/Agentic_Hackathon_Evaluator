@@ -113,7 +113,7 @@ class CanonicalRecordRow(Base):
     )
     content: Mapped[dict] = mapped_column(JSON)          # SubmissionContent
     meta: Mapped[dict] = mapped_column(JSON)             # MappingMeta
-    mapper_model: Mapped[str] = mapped_column(String(64), default="")
+    mapper_model: Mapped[str] = mapped_column(String(256), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     submission: Mapped[Submission] = relationship(back_populates="record")
@@ -149,7 +149,7 @@ class Evaluation(Base):
     rubric_slug: Mapped[str] = mapped_column(String(64))
     rubric_hash: Mapped[str] = mapped_column(String(32))
     prompt_version: Mapped[str] = mapped_column(String(32))
-    model: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(256))
     pass_no: Mapped[int] = mapped_column(Integer, default=1)
     is_final: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
@@ -390,7 +390,7 @@ class Run(Base):
     run_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     rubric_slug: Mapped[str] = mapped_column(String(64))
     rubric_hash: Mapped[str] = mapped_column(String(32))
-    model: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(256))
     submissions_total: Mapped[int] = mapped_column(Integer, default=0)
     submissions_done: Mapped[int] = mapped_column(Integer, default=0)
     submissions_failed: Mapped[int] = mapped_column(Integer, default=0)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,26 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 load_dotenv(PROJECT_ROOT / ".env")
+
+# Paths the application writes to. On a serverless host the deployment bundle is
+# read-only and only the system temp directory can be written, so these are
+# redirected there. Everything else - config.yaml, rubrics/, static assets - is
+# read from the bundle where it was deployed.
+_WRITABLE_KEYS = {"paths.cache", "paths.exports", "paths.database"}
+
+
+def is_serverless() -> bool:
+    """True on Vercel, AWS Lambda or Cloud Run, where the filesystem is read-only."""
+    return any(
+        os.environ.get(name)
+        for name in ("VERCEL", "AWS_LAMBDA_FUNCTION_NAME", "K_SERVICE")
+    )
+
+
+def writable_root() -> Path:
+    root = Path(tempfile.gettempdir()) / "cag101"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
 
 # A serverless filesystem is read-only apart from a temp directory, so anything
 # the portal writes at request time (the generated workbook) has to go there.

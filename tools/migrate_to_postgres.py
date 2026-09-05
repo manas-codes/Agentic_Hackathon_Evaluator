@@ -1,20 +1,26 @@
-"""Copy the pilot SQLite database into Postgres.
+"""Copy the local SQLite pilot database into Postgres.
 
-Used once, when the portal moves off a laptop. The schema is created from the
-same SQLAlchemy models, so nothing is hand-written and nothing can drift.
+Run once, when moving from the local pilot to a hosted deployment:
 
-Two things this deliberately does NOT do:
+    python tools/migrate_to_postgres.py                 # dry run, shows counts
+    python tools/migrate_to_postgres.py --apply         # copies
+    python tools/migrate_to_postgres.py --apply --replace   # wipes target first
 
-  * It does not delete or alter the SQLite file. That file stays the record of
-    the pilot until someone is satisfied the copy is good.
-  * It does not run unless the target is empty, so it cannot silently overwrite
-    a database that a committee has already been working in. Pass --replace to
-    override, which drops every table first and says so.
+Two details that a naive copy gets wrong, and that matter here:
 
-Usage:
-    set DATABASE_URL=postgresql+psycopg://user:pass@host/dbname
-    python tools/migrate_to_postgres.py            # copy
-    python tools/migrate_to_postgres.py --check    # count rows on both sides
+1. **Insert order.** Evidence rows reference criterion scores, which reference
+   evaluations, which reference submissions. `Base.metadata.sorted_tables` is
+   already in foreign-key dependency order, so it is used rather than any
+   hand-maintained list - a table added later is picked up automatically.
+
+2. **Sequences.** SQLite hands out integer primary keys itself; copying those
+   ids into Postgres leaves every sequence sitting at 1, and the next insert
+   through the portal collides on the primary key. Every sequence is advanced
+   past the highest copied id at the end. Skipping this step produces a
+   database that reads correctly and fails on the first write - which, for
+   this application, means the first time an evaluator approves something.
+
+The SQLite file is only read. Nothing here writes to it.
 """
 
 from __future__ import annotations
@@ -24,160 +30,153 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from sqlalchemy import create_engine, func, select  # noqa: E402
-from sqlalchemy.orm import Session  # noqa: E402
+from sqlalchemy import create_engine, func, insert, select, text  # noqa: E402
+from sqlalchemy.engine import Engine  # noqa: E402
 
 from cag101.config import load_config  # noqa: E402
+from cag101.db import database_url  # noqa: E402
 from cag101.models import Base  # noqa: E402
 
-# Parents before children: every foreign key must already resolve when a row
-# lands. Ordering is explicit rather than derived, so a new model that is not
-# added here fails loudly in the completeness check below.
-ORDER = [
-    "users",
-    "submissions",
-    "files",
-    "canonical_records",
-    "restricted_identities",
-    "flags",
-    "runs",
-    "evaluations",
-    "criterion_scores",
-    "evidence",
-    "overrides",
-    "review_decisions",
-    "clusters",
-    "cluster_members",
-    "audit_log",
-    "jobs",
-]
+
+def sqlite_engine() -> Engine:
+    path = load_config().path("paths.database")
+    if not path.exists():
+        raise SystemExit(f"No local database at {path} - nothing to migrate.")
+    return create_engine(f"sqlite:///{path}", future=True)
 
 
-def _source_url() -> str:
-    cfg = load_config()
-    raw = str(cfg.require("paths.database"))
-    if "://" in raw:
+def target_engine() -> Engine:
+    url = database_url()
+    if url.startswith("sqlite"):
         raise SystemExit(
-            "paths.database is already a URL. This tool copies the local SQLite "
-            "pilot file into Postgres; point paths.database back at data/app.db "
-            "or pass the file another way."
+            "DATABASE_URL is not set to a Postgres URL.\n"
+            "Put it in .env, for example:\n"
+            "  DATABASE_URL=postgresql://user:pass@host/db?sslmode=require"
         )
-    return f"sqlite:///{(Path(cfg.root) / raw).resolve()}"
+    return create_engine(url, future=True, pool_pre_ping=True)
 
 
-def _target_url() -> str:
-    url = os.environ.get("DATABASE_URL", "").strip()
-    if not url:
-        raise SystemExit(
-            "DATABASE_URL is not set. Example:\n"
-            "  set DATABASE_URL=postgresql+psycopg://user:pass@host/dbname"
-        )
-    if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql+psycopg://", 1)
-    elif url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    if not url.startswith("postgresql+psycopg://"):
-        raise SystemExit(f"DATABASE_URL is not a Postgres URL: {url.split('@')[0]}...")
-    return url
-
-
-def _tables_covered() -> None:
-    known = {t.name for t in Base.metadata.sorted_tables}
-    missing = known - set(ORDER)
-    unknown = set(ORDER) - known
-    if missing:
-        raise SystemExit(
-            "These tables exist in the models but are not in ORDER, so they "
-            f"would be silently skipped: {sorted(missing)}"
-        )
-    if unknown:
-        raise SystemExit(f"ORDER names tables that do not exist: {sorted(unknown)}")
-
-
-def counts(engine) -> dict[str, int]:
+def counts(engine: Engine) -> dict[str, int]:
     out: dict[str, int] = {}
-    with Session(engine) as s:
+    with engine.connect() as conn:
         for table in Base.metadata.sorted_tables:
-            out[table.name] = s.scalar(select(func.count()).select_from(table)) or 0
+            try:
+                out[table.name] = conn.execute(
+                    select(func.count()).select_from(table)
+                ).scalar_one()
+            except Exception:
+                out[table.name] = -1          # table absent on the target yet
     return out
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--check", action="store_true", help="Compare row counts only")
-    ap.add_argument(
-        "--replace", action="store_true",
-        help="Drop every table in the target first (destructive)",
-    )
-    args = ap.parse_args()
-
-    _tables_covered()
-    src = create_engine(_source_url(), future=True)
-    dst = create_engine(_target_url(), future=True)
-    print(f"source: {src.url}\ntarget: {dst.url.render_as_string(hide_password=True)}\n")
-
-    if args.check:
-        a, b = counts(src), counts(dst)
-        width = max(len(t) for t in a)
-        bad = 0
-        for table in ORDER:
-            same = a[table] == b[table]
-            bad += 0 if same else 1
-            print(f"  {table:<{width}}  sqlite {a[table]:>6}   postgres {b[table]:>6}"
-                  f"   {'ok' if same else 'MISMATCH'}")
-        print("\nidentical" if not bad else f"\n{bad} table(s) differ")
-        return 0 if not bad else 1
-
-    if args.replace:
-        print("--replace: dropping every table in the target first.")
-        Base.metadata.drop_all(dst)
-
-    Base.metadata.create_all(dst)
-
-    existing = counts(dst)
-    if any(existing.values()):
-        populated = {t: n for t, n in existing.items() if n}
-        raise SystemExit(
-            "The target already holds data and would be added to, not replaced:\n"
-            f"  {populated}\n"
-            "Re-run with --replace if that is what you want."
-        )
-
-    moved = 0
-    with Session(src) as s_in, Session(dst) as s_out:
-        for name in ORDER:
-            table = Base.metadata.tables[name]
-            rows = [dict(r._mapping) for r in s_in.execute(select(table))]
-            if rows:
-                s_out.execute(table.insert(), rows)
-            moved += len(rows)
-            print(f"  {name:<22} {len(rows):>6} row(s)")
-        s_out.commit()
-
-    # Postgres sequences do not advance when explicit ids are inserted, so the
-    # next insert would collide on the primary key. Reset each one to the
-    # highest id actually present.
-    with Session(dst) as s_out:
-        for name in ORDER:
-            table = Base.metadata.tables[name]
+def reset_sequences(engine: Engine) -> list[str]:
+    """Advance each identity sequence past the highest copied primary key."""
+    done: list[str] = []
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
             pk = list(table.primary_key.columns)
             if len(pk) != 1 or not pk[0].autoincrement:
                 continue
             col = pk[0].name
-            s_out.execute(
-                func.setval(
-                    func.pg_get_serial_sequence(name, col),
-                    select(func.coalesce(func.max(table.c[col]), 1)).scalar_subquery(),
-                )
+            seq = conn.execute(
+                text("SELECT pg_get_serial_sequence(:t, :c)"),
+                {"t": table.name, "c": col},
+            ).scalar()
+            if not seq:
+                continue
+            highest = conn.execute(
+                text(f'SELECT COALESCE(MAX("{col}"), 0) FROM "{table.name}"')
+            ).scalar_one()
+            # is_called=true means the NEXT value is highest+1
+            conn.execute(
+                text("SELECT setval(:s, :v, true)"),
+                {"s": seq, "v": max(int(highest), 1)},
             )
-        s_out.commit()
-    print(f"\nCopied {moved} row(s). Sequences reset.")
-    print("Verify with:  python tools/migrate_to_postgres.py --check")
-    print("The SQLite file is untouched — keep it until the copy is confirmed.")
+            done.append(f"{table.name}.{col} -> {highest}")
+    return done
+
+
+def migrate(apply: bool, replace: bool) -> int:
+    src, dst = sqlite_engine(), target_engine()
+
+    print(f"source : {src.url}")
+    print(f"target : {dst.url.render_as_string(hide_password=True)}\n")
+
+    Base.metadata.create_all(dst)
+
+    before = counts(dst)
+    populated = {t: n for t, n in before.items() if n > 0}
+    if populated and not replace:
+        print("The target already holds rows:")
+        for t, n in sorted(populated.items()):
+            print(f"  {t:<24} {n}")
+        print(
+            "\nRefusing to copy into a populated database - the result would be "
+            "duplicated rows or primary-key collisions.\nUse --replace to wipe "
+            "the target first, or point DATABASE_URL at an empty database."
+        )
+        return 1
+
+    src_counts = counts(src)
+    total = sum(n for n in src_counts.values() if n > 0)
+    print(f"{'table':<24}{'rows':>8}")
+    for t, n in src_counts.items():
+        if n:
+            print(f"  {t:<22}{n:>8}")
+    print(f"  {'TOTAL':<22}{total:>8}\n")
+
+    if not apply:
+        print("Dry run. Re-run with --apply to copy.")
+        return 0
+
+    if replace and populated:
+        with dst.begin() as conn:
+            for table in reversed(Base.metadata.sorted_tables):
+                conn.execute(table.delete())
+        print("Target emptied.\n")
+
+    copied = 0
+    with src.connect() as s_conn, dst.begin() as d_conn:
+        for table in Base.metadata.sorted_tables:      # FK dependency order
+            rows = [dict(r) for r in s_conn.execute(select(table)).mappings()]
+            if not rows:
+                continue
+            # chunked: one 5,000-row statement is fine, 400 submissions of
+            # evidence rows in a single statement is not
+            for i in range(0, len(rows), 500):
+                d_conn.execute(insert(table), rows[i : i + 500])
+            copied += len(rows)
+            print(f"  copied {len(rows):>6}  {table.name}")
+
+    print(f"\n{copied} rows copied. Advancing sequences:")
+    for line in reset_sequences(dst):
+        print(f"  {line}")
+
+    after = counts(dst)
+    mismatch = [
+        (t, src_counts.get(t, 0), after.get(t, 0))
+        for t in src_counts
+        if src_counts.get(t, 0) != after.get(t, 0)
+    ]
+    if mismatch:
+        print("\nROW COUNTS DO NOT MATCH:")
+        for t, a, b in mismatch:
+            print(f"  {t}: source {a}, target {b}")
+        return 1
+
+    print("\nRow counts match on every table. Migration complete.")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--apply", action="store_true", help="Actually copy the rows")
+    ap.add_argument(
+        "--replace", action="store_true",
+        help="Delete everything in the target first (destructive)",
+    )
+    args = ap.parse_args()
+    raise SystemExit(migrate(args.apply, args.replace))

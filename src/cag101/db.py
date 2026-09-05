@@ -1,7 +1,13 @@
 """Database engine and session handling.
 
-SQLite for the pilot; set paths.database to a postgresql+psycopg:// URL for the
-400-submission run and nothing else needs to change.
+SQLite for the local pilot. Set the DATABASE_URL environment variable (or
+paths.database in config.yaml) to a Postgres URL for any hosted deployment -
+the serverless filesystem is read-only, so a SQLite file there would be lost
+on every cold start along with every approval and score amendment recorded in
+it.
+
+DATABASE_URL wins over config.yaml, because a host sets it as an environment
+variable and must not need the file edited to take effect.
 """
 
 from __future__ import annotations
@@ -13,8 +19,9 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
-from .config import ensure_directories, load_config
+from .config import ensure_directories, is_serverless, load_config
 from .models import Base
 
 _engine: Engine | None = None
@@ -49,7 +56,17 @@ def get_engine() -> Engine:
     if _engine is None:
         url = database_url()
         connect_args = {"timeout": 30} if url.startswith("sqlite") else {}
-        _engine = create_engine(url, future=True, connect_args=connect_args)
+        kwargs: dict = {"future": True, "connect_args": connect_args}
+        if not url.startswith("sqlite"):
+            # A serverless invocation is short-lived and may be frozen between
+            # requests, so a pooled connection held across invocations is
+            # already dead when it is reused. Let the connection close with the
+            # request and rely on the provider's own pooler (the `-pooler` host
+            # in a Neon connection string).
+            kwargs["pool_pre_ping"] = True
+            if is_serverless():
+                kwargs["poolclass"] = NullPool
+        _engine = create_engine(url, **kwargs)
         if url.startswith("sqlite"):
 
             @event.listens_for(_engine, "connect")

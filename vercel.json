@@ -1,13 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": "{config.yaml,rubrics/**,src/cag101/web/static/**,src/cag101/web/templates/**}"
-      }
+  "functions": {
+    "api/index.py": {
+      "runtime": "@vercel/python@5.0.0",
+      "maxDuration": 60,
+      "includeFiles": "{config.yaml,rubrics/**,src/**}"
     }
-  ],
-  "routes": [{ "src": "/(.*)", "dest": "api/index.py" }]
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
 }
