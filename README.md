@@ -18,7 +18,7 @@ Built by the AI PMU, National e-Governance Division (NeGD), MeitY.
 ## 1. Quick start
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.txt -r requirements-pipeline.txt
 ```
 
 Copy `.env.example` to `.env` and fill in:

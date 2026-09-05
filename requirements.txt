@@ -1,26 +1,15 @@
 # CAG 101 Innovation Ideas — Evaluation Framework
 # Python 3.11
-
-# --- LLM ---
-anthropic>=0.40.0
-
-# --- Document extraction ---
-PyMuPDF>=1.24.0          # PDF text + images (imported as `fitz`)
-python-docx>=1.1.0       # .docx
-python-pptx>=0.6.23      # .pptx
-Pillow>=10.0.0           # image handling for vision calls
-
-# --- Data / persistence ---
-SQLAlchemy>=2.0.0
-pydantic>=2.0.0
-PyYAML>=6.0
-
-# --- Analysis ---
-numpy>=1.26.0
-scikit-learn>=1.4.0      # similar-idea clustering
-
-# --- Export ---
-openpyxl>=3.1.0
+#
+# This file is what the PORTAL needs, and nothing more. It is the file the
+# hosting platform installs, so every line here is installed on every deploy.
+# The extraction and scoring pipeline needs PyMuPDF, scikit-learn and the rest
+# — those live in requirements-pipeline.txt and are not installed on the host,
+# because the pipeline does not run there. It runs on an operator machine that
+# has the submission files and an API credential.
+#
+# Local development, full stack:
+#   pip install -r requirements.txt -r requirements-pipeline.txt
 
 # --- Web portal ---
 fastapi>=0.110.0
@@ -30,13 +19,14 @@ python-multipart>=0.0.9
 itsdangerous>=2.1.0      # signed session cookies
 argon2-cffi>=23.1.0      # password hashing
 
+# --- Data / persistence ---
+SQLAlchemy>=2.0.0
+pydantic>=2.0.0
+PyYAML>=6.0
+psycopg[binary]>=3.2     # Postgres. Used whenever DATABASE_URL is set.
+
+# --- Export ---
+openpyxl>=3.1.0          # the portal generates the workbook on request
+
 # --- Config ---
 python-dotenv>=1.0.0
-
-# --- Optional, install if OCR / video transcription is needed ---
-# pytesseract>=0.3.10    # also needs the Tesseract binary on PATH
-# faster-whisper>=1.0.0  # also needs ffmpeg on PATH
-
-# Postgres driver. Only needed when DATABASE_URL points at Postgres
-# (any hosted deployment); the local SQLite pilot does not use it.
-psycopg[binary]>=3.2
