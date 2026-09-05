@@ -44,7 +44,7 @@ from ..auth import (
     set_password,
     verify_password,
 )
-from ..config import load_config, session_secret
+from ..config import is_serverless, load_config, session_secret
 from ..db import init_db, session_scope
 from ..models import Evaluation, Override, ReviewDecision, Submission, User
 from ..reporting import (
@@ -831,11 +831,33 @@ def admin_add_user(
 # ---------------------------------------------------------------------------
 @app.get("/healthz")
 def healthz() -> dict[str, Any]:
+    """Liveness plus the two facts that actually go wrong on a hosted deploy.
+
+    Names the database backend and counts the rows behind it. A deployment
+    missing DATABASE_URL does not crash - it silently falls back to an empty
+    SQLite file in the temp directory and answers "incorrect username or
+    password" to correct credentials, because the user table is empty. That
+    failure is indistinguishable from a typo until you can see which database
+    is being read, so this endpoint says so.
+
+    No credential is exposed: the backend name and whether the variable is
+    present, never its value.
+    """
+    from sqlalchemy import func
+
+    from ..db import database_url
+
+    backend = database_url().split("://", 1)[0]
     with session_scope() as session:
-        count = session.scalar(select(Submission).limit(1))
-        evaluations = session.scalar(select(Evaluation).limit(1))
+        submissions = session.scalar(select(func.count()).select_from(Submission)) or 0
+        evaluations = session.scalar(select(func.count()).select_from(Evaluation)) or 0
+        users = session.scalar(select(func.count()).select_from(User)) or 0
     return {
         "status": "ok",
-        "has_submissions": count is not None,
-        "has_evaluations": evaluations is not None,
+        "database_backend": backend,
+        "database_url_env_set": bool(os.environ.get("DATABASE_URL", "").strip()),
+        "serverless": is_serverless(),
+        "submissions": submissions,
+        "evaluations": evaluations,
+        "users": users,
     }

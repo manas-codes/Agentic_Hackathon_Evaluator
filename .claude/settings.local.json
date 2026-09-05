@@ -43,5 +43,8 @@
       "Bash(curl -s http://127.0.0.1:8137/login)",
       "Bash(python cag.py check-rubric)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "vercel"
+  ]
 }
