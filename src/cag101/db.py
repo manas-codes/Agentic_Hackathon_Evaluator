@@ -47,6 +47,23 @@ def database_url() -> str:
     raw = str(cfg.require("paths.database"))
     if "://" in raw:
         return raw
+
+    if is_serverless():
+        # Falling back to SQLite here is always wrong and always silent. The
+        # bundle's filesystem is read-only apart from the temp directory, so
+        # the app comes up on an empty database, bootstraps a fresh admin,
+        # answers "incorrect username or password" to correct credentials, and
+        # loses every approval on each cold start. Refuse instead: a clear
+        # failure at startup costs minutes, this failure costs an afternoon.
+        raise RuntimeError(
+            "DATABASE_URL is not set. This deployment has a read-only "
+            "filesystem, so there is no SQLite file to fall back to. Set "
+            "DATABASE_URL to the Postgres connection string in the hosting "
+            "platform's environment variables - for every environment, not "
+            "just one - and redeploy. Environment variable changes do not "
+            "take effect until the next deployment."
+        )
+
     ensure_directories()
     return f"sqlite:///{cfg.path('paths.database')}"
 
