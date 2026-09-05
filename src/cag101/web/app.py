@@ -181,10 +181,21 @@ def current_user(request: Request) -> User | None:
     return user
 
 
+# Paths a user with an unchanged temporary password may still reach.
+_PASSWORD_CHANGE_EXEMPT = {"/change-password", "/logout", "/healthz"}
+
+
 def require_user(request: Request) -> User:
     user = current_user(request)
     if user is None:
         raise HTTPException(status_code=401, detail="login required")
+
+    # A forced password change has to be enforced on every request, not only by
+    # redirecting once at login. The session is minted before that redirect, so
+    # anyone who ignored it kept full access on a password an administrator
+    # issued verbally or on paper - the rotation never actually happened.
+    if user.must_change_password and request.url.path not in _PASSWORD_CHANGE_EXEMPT:
+        raise HTTPException(status_code=409, detail="password change required")
     return user
 
 
@@ -233,11 +244,35 @@ def base_context(request: Request, user: User | None) -> dict[str, Any]:
     }
 
 
+def safe_next(candidate: str) -> str:
+    """Only ever redirect within this site.
+
+    `next` arrives from the query string and was passed straight to
+    RedirectResponse, so a link ending `?next=https://elsewhere.example/` sent
+    the user off-site immediately after a successful login - on a government
+    domain that is a ready-made credential-phishing chain. A scheme-relative
+    `//host` is rejected too: the browser treats it as absolute.
+    """
+    value = (candidate or "").strip()
+    if (
+        not value.startswith("/")
+        or value.startswith("//")
+        or value.startswith("/\\")
+    ):
+        return "/overview"
+    return value
+
+
 @app.exception_handler(401)
 async def unauthorised(request: Request, _exc: HTTPException) -> Response:
     return RedirectResponse(
         f"/login?next={request.url.path}", status_code=HTTP_303_SEE_OTHER
     )
+
+
+@app.exception_handler(409)
+async def password_change_required(request: Request, _exc: HTTPException) -> Response:
+    return RedirectResponse("/change-password", status_code=HTTP_303_SEE_OTHER)
 
 
 @app.exception_handler(403)
@@ -268,7 +303,7 @@ def startup() -> None:
 @app.get("/login", response_class=HTMLResponse)
 def login_form(request: Request, next: str = "/overview") -> Response:
     if current_user(request):
-        return RedirectResponse(next, status_code=HTTP_303_SEE_OTHER)
+        return RedirectResponse(safe_next(next), status_code=HTTP_303_SEE_OTHER)
     context = base_context(request, None)
     context.update({"next": next, "error": None})
     return templates.TemplateResponse(request, "login.html", context)
@@ -294,7 +329,7 @@ def login(
     request.session["role"] = user.role
     if user.must_change_password:
         return RedirectResponse("/change-password", status_code=HTTP_303_SEE_OTHER)
-    return RedirectResponse(next or "/overview", status_code=HTTP_303_SEE_OTHER)
+    return RedirectResponse(safe_next(next), status_code=HTTP_303_SEE_OTHER)
 
 
 @app.post("/logout")
@@ -391,12 +426,15 @@ def _filter_cards(
     stage: str = "",
     review: str = "",
     evaluated: str = "",
+    *,
+    include_identity: bool = False,
 ) -> list[ScorecardView]:
     needle = q.strip().lower()
     out = []
     for card in cards:
         if needle and needle not in (
-            f"{card.ref} {card.title} {card.folder_name} {card.office}".lower()
+            f"{card.ref} {card.title} {card.folder_name} "
+            f"{card.office if include_identity else ''}".lower()
         ):
             continue
         if theme and card.thematic_area != theme:
@@ -443,7 +481,10 @@ def scorecards(
         cards = all_scorecards(session, rubric, include_evidence=False)
         rank_scorecards(cards)
 
-    filtered = _filter_cards(cards, q, theme, formation, stage, review, evaluated)
+    filtered = _filter_cards(
+        cards, q, theme, formation, stage, review, evaluated,
+        include_identity=has_role(user.role, "evaluator"),
+    )
     filtered.sort(key=SORT_KEYS.get(sort, SORT_KEYS["total"]))
 
     context = base_context(request, user)
@@ -754,13 +795,23 @@ def export_csv(
     review: str = "",
     evaluated: str = "",
 ) -> Response:
-    """CSV of exactly what the current filter shows."""
+    """CSV of exactly what the current filter shows.
+
+    The office is submitter identity. A viewer cannot see it in the portal, so
+    it must not appear in their download either - the export was the one route
+    that read it without checking the role, which made the documented
+    three-role model false the first time a viewer clicked Download CSV.
+    """
     user = require_user(request)
+    can_see_identity = has_role(user.role, "evaluator")
     rubric = load_rubric()
     with session_scope() as session:
         cards = all_scorecards(session, rubric, include_evidence=False)
         rank_scorecards(cards)
-    filtered = _filter_cards(cards, q, theme, formation, stage, review, evaluated)
+    filtered = _filter_cards(
+        cards, q, theme, formation, stage, review, evaluated,
+        include_identity=has_role(user.role, "evaluator"),
+    )
     filtered.sort(key=SORT_KEYS["total"])
 
     buffer = io.StringIO()
@@ -780,7 +831,8 @@ def export_csv(
 
     for card in filtered:
         row: list[Any] = [
-            card.ref, card.title or card.folder_name, card.office,
+            card.ref, card.title or card.folder_name,
+            card.office if can_see_identity else "",
             card.formation_category, card.thematic_area, card.development_stage,
         ]
         for criterion in rubric.criteria:

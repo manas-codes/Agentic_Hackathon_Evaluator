@@ -55,6 +55,7 @@ from .score import (
     CriterionResult,
     SubScore,
     SubmissionScore,
+    blind_view,
     render_submission_for_scoring,
     score_submission,
 )
@@ -261,7 +262,14 @@ def score_one(
     verifier_total = 0.0
     verifier_notes: list[str] = []
 
-    for pass_no in range(1, n_passes + 1):
+    # A while loop, not `for pass_no in range(1, n_passes + 1)`. The range was
+    # materialised once from n_passes == 2, so raising n_passes to 3 inside the
+    # body had no effect and the tie-breaking third pass never ran - the config
+    # promised it, the docstring promised it, and two wildly disagreeing passes
+    # were silently averaged instead.
+    pass_no = 0
+    while pass_no < n_passes:
+        pass_no += 1
         try:
             result = score_submission(rubric, record, text, meter=meter)
         except CostCeilingExceeded:
@@ -274,7 +282,11 @@ def score_one(
             )
 
         if use_verifier:
-            view = render_submission_for_scoring(record, text)
+            # Blinded, exactly as the scorer's view is. The verifier is a model
+            # call like any other and it is the pass that can change a score,
+            # so an unmasked view here would let it act on the formation it can
+            # see - the precise thing blind review exists to prevent.
+            view = blind_view(render_submission_for_scoring(record, text), record)
             verification = verify_submission(rubric, result, view, meter=meter)
             verifier_total += verification.total_adjustment
             verifier_notes.append(f"pass {pass_no}: {verification.summary()}")
@@ -283,7 +295,7 @@ def score_one(
         passes.append(result)
 
         # A third pass only when the first two disagree materially.
-        if pass_no == n_passes >= 2:
+        if pass_no == n_passes >= 2 and len(passes) > 1:
             spread = max(p.total for p in passes) - min(p.total for p in passes)
             if spread > threshold and n_passes < 3:
                 n_passes = 3
@@ -292,9 +304,29 @@ def score_one(
     spread = round(max(totals) - min(totals), 2) if len(totals) > 1 else 0.0
     final = consolidate(passes, rubric)
 
-    flagged = spread > threshold
+    # A criterion that errored in EVERY pass carries no sub-scores, so it
+    # contributes zero to a total still presented as being out of 100. With two
+    # passes failing the same way - a persistent schema failure, a refusal, a
+    # truncation on a long submission - the spread is zero, so the disagreement
+    # check does not catch it, and the submission is ranked against others
+    # marked out of a real 100 while missing up to 25 points. Worse, the
+    # already-scored filter then skips it on every later run, making the
+    # corrupt score permanent. It must be flagged loudly and never look clean.
+    broken = [c for c in final.criteria if c.error and not c.sub_scores]
+    lost = sum(c.max_points for c in broken)
+
+    flagged = spread > threshold or bool(broken)
     note = ""
-    if flagged:
+    if broken:
+        names = ", ".join(f"{c.name} ({c.max_points} marks)" for c in broken)
+        note = (
+            f"INCOMPLETE SCORE - {len(broken)} criterion/criteria could not be "
+            f"scored in any pass: {names}. The recorded total is out of "
+            f"{100 - lost}, not 100, and must not be compared with other "
+            f"submissions until this is re-run. Errors: "
+            + " | ".join(c.error for c in broken if c.error)[:600]
+        )
+    elif flagged:
         note = (
             f"Scoring passes disagreed by {spread:.1f} points "
             f"(threshold {threshold:.0f}). Totals: {totals}. "
@@ -311,6 +343,13 @@ def score_one(
         )
         if flagged:
             _upsert_flag(session, submission.id, "human_review_required", "true", note)
+        if broken:
+            _upsert_flag(
+                session, submission.id, "incomplete_score", "true",
+                f"{len(broken)} criterion/criteria unscored; total is out of {100 - lost}.",
+            )
+            submission.status = "scoring_failed"
+            submission.status_detail = note
         submission.status = "scored"
         submission.status_detail = note
 
@@ -605,7 +644,9 @@ def _dry_run(eligible: list[tuple[int, str]], rubric: Rubric) -> int:
         return 1
 
     text = submission_text(docs, max_chars=400_000)
-    view = render_submission_for_scoring(record, text)
+    # The estimator sends this to the token-counting endpoint, which is a model
+    # call and is billed as one - so it is blinded too.
+    view = blind_view(render_submission_for_scoring(record, text), record)
 
     per_criterion: list[int] = []
     for key in rubric.criterion_keys:

@@ -149,63 +149,104 @@ class LoginError(Exception):
     """Login failed. The message is safe to show the user."""
 
 
+_DUMMY_HASH = (
+    "$argon2id$v=19$m=65536,t=3,p=4$"
+    "c29tZXNhbHRzb21lc2FsdA$8Z5c3nGx1kK7pVQqW9m2Yx4vN6tR0sL8jH1aD3fE5bU"
+)
+
+
 def authenticate(username: str, password: str, ip: str = "") -> User:
+    """Verify credentials, recording every outcome.
+
+    The failure state is committed BEFORE LoginError is raised. It used to be
+    raised inside `session_scope`, whose `except Exception: rollback()` then
+    undid the very increment and audit row it had just written - so the failed
+    login counter never moved, no `login_failed` row was ever recorded, and the
+    lockout configured in `portal.max_failed_logins` had no effect at all.
+    Verified: six wrong passwords left `failed_logins` at 0 and the account
+    fully usable. An unlimited, unlogged password-guessing surface.
+    """
     cfg = load_config()
     max_failed = int(cfg.get("portal.max_failed_logins", 5))
     lockout = int(cfg.get("portal.lockout_minutes", 15))
 
+    # Same message whether the account does not exist, is disabled, or the
+    # password is wrong, so the form cannot be used to enumerate accounts or
+    # to discover which of them are live. The real reason goes to the audit
+    # log, where an administrator can see it and an attacker cannot.
+    generic = "Incorrect username or password."
+    failure: str | None = None          # set to the message to raise after commit
+
     with session_scope() as session:
         user = session.scalar(select(User).where(User.username == username.strip().lower()))
 
-        # Same message whether the user does not exist or the password is wrong,
-        # so the login form cannot be used to enumerate usernames.
-        generic = "Incorrect username or password."
-
         if user is None:
+            # Verify against a dummy hash anyway. Returning early here made the
+            # unknown-user path measurably faster than the wrong-password path,
+            # which is a timing oracle for valid usernames.
+            verify_password(_DUMMY_HASH, password)
             session.add(
                 AuditLog(
                     username=username[:64], action="login_failed",
                     detail="no such user", ip=ip,
                 )
             )
-            raise LoginError(generic)
+            failure = generic
 
-        if not user.is_active:
+        elif not user.is_active:
             session.add(
                 AuditLog(user_id=user.id, username=user.username,
                          action="login_failed", detail="account disabled", ip=ip)
             )
-            raise LoginError("This account is disabled. Contact the administrator.")
+            failure = generic
 
-        now = datetime.now(timezone.utc)
-        if user.locked_until and user.locked_until > now:
-            remaining = int((user.locked_until - now).total_seconds() // 60) + 1
-            raise LoginError(
-                f"Account locked after repeated failed attempts. "
-                f"Try again in {remaining} minute(s)."
-            )
+        else:
+            now = datetime.now(timezone.utc)
+            # SQLite hands back naive datetimes while Postgres returns aware
+            # ones, so the stored value has to be normalised before it can be
+            # compared. This crashed with a TypeError the first time the
+            # lockout branch was ever reached - it had been unreachable until
+            # the rollback bug above was fixed, so the two defects hid each
+            # other.
+            locked_until = user.locked_until
+            if locked_until is not None and locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=timezone.utc)
 
-        if not verify_password(user.password_hash, password):
-            user.failed_logins += 1
-            detail = f"wrong password ({user.failed_logins}/{max_failed})"
-            if user.failed_logins >= max_failed:
-                user.locked_until = now + timedelta(minutes=lockout)
+            if locked_until and locked_until > now:
+                session.add(
+                    AuditLog(user_id=user.id, username=user.username,
+                             action="login_failed", detail="locked", ip=ip)
+                )
+                failure = generic
+
+            elif not verify_password(user.password_hash, password):
+                user.failed_logins += 1
+                detail = f"wrong password ({user.failed_logins}/{max_failed})"
+                if user.failed_logins >= max_failed:
+                    user.locked_until = now + timedelta(minutes=lockout)
+                    user.failed_logins = 0
+                    detail = f"locked for {lockout} minutes"
+                session.add(
+                    AuditLog(user_id=user.id, username=user.username,
+                             action="login_failed", detail=detail, ip=ip)
+                )
+                failure = generic
+
+            else:
                 user.failed_logins = 0
-                detail = f"locked for {lockout} minutes"
-            session.add(
-                AuditLog(user_id=user.id, username=user.username,
-                         action="login_failed", detail=detail, ip=ip)
-            )
-            raise LoginError(generic)
+                user.locked_until = None
+                user.last_login_at = utcnow()
+                session.add(
+                    AuditLog(user_id=user.id, username=user.username,
+                             action="login", ip=ip)
+                )
+                session.expunge(user)
+                authenticated = user
 
-        user.failed_logins = 0
-        user.locked_until = None
-        user.last_login_at = utcnow()
-        session.add(
-            AuditLog(user_id=user.id, username=user.username, action="login", ip=ip)
-        )
-        session.expunge(user)
-        return user
+    # Outside the session: the block above has committed either way.
+    if failure is not None:
+        raise LoginError(failure)
+    return authenticated
 
 
 def get_user(user_id: int) -> User | None:

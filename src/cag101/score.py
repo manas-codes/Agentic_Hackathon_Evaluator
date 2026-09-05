@@ -308,8 +308,15 @@ def render_submission_for_scoring(
     return "\n".join(lines)
 
 
-def _blind(text: str, record: CanonicalRecord) -> str:
-    """Mask names and office immediately before the scoring call."""
+def blind_view(text: str, record: CanonicalRecord) -> str:
+    """Mask names and office immediately before ANY model call.
+
+    Public because the scorer is not the only caller: the verifier reads the
+    same submission to check quotes, and the dry-run estimator sends it to the
+    token-counting endpoint. Every one of those is a model call and every one
+    must see the same masked text, or the blind-review guarantee holds for the
+    scoring pass only - which is not what the configuration says it does.
+    """
     cfg = load_config()
     if not bool(cfg.get("privacy.deidentify_before_llm", True)):
         return text
@@ -473,7 +480,7 @@ def score_submission(
     model: str | None = None,
 ) -> SubmissionScore:
     view = render_submission_for_scoring(record, attachment_text)
-    view = _blind(view, record)
+    view = blind_view(view, record)
     is_special = record.content.formation_category is FormationCategory.SPECIAL_CATEGORY_STATE
 
     results: dict[str, CriterionResult] = {}
