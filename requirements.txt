@@ -1,0 +1,38 @@
+# CAG 101 Innovation Ideas — Evaluation Framework
+# Python 3.11
+
+# --- LLM ---
+anthropic>=0.40.0
+
+# --- Document extraction ---
+PyMuPDF>=1.24.0          # PDF text + images (imported as `fitz`)
+python-docx>=1.1.0       # .docx
+python-pptx>=0.6.23      # .pptx
+Pillow>=10.0.0           # image handling for vision calls
+
+# --- Data / persistence ---
+SQLAlchemy>=2.0.0
+pydantic>=2.0.0
+PyYAML>=6.0
+
+# --- Analysis ---
+numpy>=1.26.0
+scikit-learn>=1.4.0      # similar-idea clustering
+
+# --- Export ---
+openpyxl>=3.1.0
+
+# --- Web portal ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+jinja2>=3.1.0
+python-multipart>=0.0.9
+itsdangerous>=2.1.0      # signed session cookies
+argon2-cffi>=23.1.0      # password hashing
+
+# --- Config ---
+python-dotenv>=1.0.0
+
+# --- Optional, install if OCR / video transcription is needed ---
+# pytesseract>=0.3.10    # also needs the Tesseract binary on PATH
+# faster-whisper>=1.0.0  # also needs ffmpeg on PATH

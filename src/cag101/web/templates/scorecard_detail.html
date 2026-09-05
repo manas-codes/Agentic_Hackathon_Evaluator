@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}{{ card.ref }}{% endblock %}
+
+{% block content %}
+
+{# One submission, read at speed. An evaluator working through four hundred of
+   these needs the mark, the reason for it, and the way to change it — in that
+   order, on one screen. Everything below the summary is folded away until it
+   is asked for. #}
+
+<div class="workhead">
+  <div>
+    <div class="crumb"><a href="/scorecards">&larr; Scorecards</a></div>
+    <h1>{{ card.ref }}</h1>
+  </div>
+  {% if can_override %}
+  <div style="display:flex; gap:0.5rem; align-items:center">
+    <button type="button" class="review-pill"
+            data-review="/scorecards/{{ card.ref }}/review"
+            data-state="{{ 'approved' if card.is_approved else 'pending' }}"
+            aria-pressed="{{ 'true' if card.is_approved else 'false' }}">
+      <svg aria-hidden="true"><use href="{{ '#i-tick' if card.is_approved else '#i-clock' }}"/></svg>
+      <span class="txt">{{ 'Approved' if card.is_approved else 'Pending review' }}</span>
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+{# ---- the summary: everything an evaluator needs to form a view ---------- #}
+<div class="card sc-head">
+  <div class="sc-top">
+    <div class="sc-id">
+      <h2>{{ card.title or card.folder_name }}</h2>
+      <div class="sc-meta">
+        {{ formation_labels.get(card.formation_category, card.formation_category) }}
+        &middot; {{ theme_labels.get(card.thematic_area, card.thematic_area) }}
+        &middot; {{ stage_labels.get(card.development_stage, card.development_stage) }}
+        {% if can_see_identity and card.office %}&middot; {{ card.office }}{% endif %}
+        {% if card.rank_overall %}&middot; rank {{ card.rank_overall }} of {{ total_evaluated }}{% endif %}
+      </div>
+    </div>
+    <div class="sc-total">
+      {% if card.evaluated %}
+      <span class="n">{{ '%.1f'|format(card.total) }}</span><span class="of">/100</span>
+      {% if card.is_overridden %}
+      <div class="tiny muted">assessed at {{ '%.1f'|format(card.machine_total) }}</div>
+      {% endif %}
+      {% else %}
+      <span class="badge grey">Not evaluated</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if card.status in ['extraction_failed', 'mapping_failed', 'scoring_failed'] %}
+  <div class="error" style="margin-top:0.9rem">
+    <strong>{{ card.status.replace('_', ' ')|title }}.</strong> {{ card.status_detail }}
+  </div>
+  {% elif card.status == 'no_files_submitted' %}
+  <div class="error" style="margin-top:0.9rem">
+    <strong>No files submitted.</strong> Nothing to assess — PPG Wing to obtain the material.
+  </div>
+  {% endif %}
+
+  {# the four marks, at a glance #}
+  {% if card.evaluated %}
+  <div class="sc-bars">
+    {% for criterion in card.criteria %}
+    <div class="sc-bar" style="--k: var(--c-{{ CRITERION_HUE.get(criterion.key, 'innovation') }})">
+      <div class="lbl">{{ CRITERION_SHORT.get(criterion.key, criterion.name) }}</div>
+      <div class="val">{{ '%.1f'|format(criterion.effective_score) }}<small>/{{ criterion.max_points }}</small></div>
+      <div class="trk"><i style="width: {{ criterion.effective_score / criterion.max_points * 100 }}%"></i></div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{# ---- why the total came out here, as points ---------------------------- #}
+{% if card.remarks %}
+<div class="card sc-remarks">
+  <h2>Why this total</h2>
+  <ul class="findings">
+    {% for point in card.remarks|bullets %}
+    <li>{{ point }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{# ---- the marks in detail, folded away ----------------------------------- #}
+{% if card.evaluated %}
+<div class="sc-detail">
+  {% for criterion in card.criteria %}
+  {% set ovr = overrides.get(criterion.key) %}
+  <details class="criterion" style="--k: var(--c-{{ CRITERION_HUE.get(criterion.key, 'innovation') }})">
+    <summary>
+      <span class="name">{{ criterion.name }}</span>
+      <span class="right nowrap">
+        {% if criterion.is_overridden %}<span class="badge warn">amended</span>{% endif %}
+        <span class="score">{{ '%.1f'|format(criterion.effective_score) }}<span class="of">/{{ criterion.max_points }}</span></span>
+      </span>
+    </summary>
+
+    {% for sub in criterion.sub_scores %}
+    <div class="subscore">
+      <div class="head">
+        <div class="sub-name">{{ sub.sub_name }}</div>
+        <div class="sub-score">
+          {{ '%.1f'|format(sub.score) }} <span class="muted tiny">/ {{ sub.max_score }}</span>
+          {% if sub.band %}
+          <span class="badge {{ 'good' if sub.band in ['Strong', 'Exceptional'] else ('warn' if sub.band == 'Weak' else ('critical' if sub.band == 'Absent' else 'grey')) }}">{{ sub.band }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <ul class="findings">
+        {% for point in sub.rationale|bullets %}
+        <li>{{ point }}</li>
+        {% endfor %}
+      </ul>
+
+      {% if sub.evidence %}
+      <ul class="sources">
+        {% for e in sub.evidence %}
+        <li>
+          <span class="q">&ldquo;{{ e.quote }}&rdquo;</span>
+          <span class="src">{{ e.source_file }}{% if e.locator %} &middot; {{ e.locator }}{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="no-evidence">No supporting quote found — score capped.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if can_override %}
+    <div class="crit-foot">
+      {% if ovr %}
+      <div class="small">
+        Amended to <strong>{{ '%.1f'|format(ovr.human_score) }}</strong> by
+        {{ ovr.reviewer }} on {{ ovr.created_at|ist }} &mdash; <em>{{ ovr.justification }}</em>
+      </div>
+      <form method="post" action="/scorecards/{{ card.ref }}/override/{{ criterion.key }}/remove">
+        <button type="submit" class="danger">Restore assessed score</button>
+      </form>
+      {% else %}
+      <button class="why edit" type="button"
+              data-edit="/scorecards/{{ card.ref }}/override"
+              data-ref="{{ card.ref }}"
+              data-criterion="{{ criterion.key }}"
+              data-criterion-name="{{ criterion.name }}"
+              data-max="{{ criterion.max_points }}"
+              data-score="{{ '%.1f'|format(criterion.effective_score) }}"
+              data-machine="{{ '%.1f'|format(criterion.machine_score) }}"
+              data-note="">
+        <svg aria-hidden="true"><use href="#i-pen"/></svg> Edit score
+      </button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </details>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ---- what was submitted, and who by ------------------------------------ #}
+<div class="grid k2 mt">
+  <div class="card">
+    <h2>Files <span class="note">{{ card.files|length }} in {{ card.folder_name }}</span></h2>
+    {% if card.files %}
+    <ul class="filelist">
+      {% for f in card.files %}
+      <li>
+        <span class="fn" title="{{ f.relative_path }}">{{ f.relative_path }}</span>
+        <span class="fm">{{ f.kind }} &middot; {{ f.size_kb }} KB</span>
+        {% if f.status != 'ok' %}
+          <span class="badge {{ 'warn' if f.status == 'skipped' else 'critical' }}">not read</span>
+        {% elif f.media_derived %}<span class="badge warn">transcript</span>
+        {% elif f.ocr_used %}<span class="badge warn">OCR</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="small muted mb0">No files were submitted.</p>
+    {% endif %}
+  </div>
+
+  {% if can_see_identity and card.identity %}
+  <div class="card">
+    <h2>Submitter <span class="note">restricted &middot; withheld during scoring</span></h2>
+    <ul class="filelist">
+      <li><span class="fn">{{ card.identity.get('full_name') or '—' }}</span>
+          <span class="fm">{{ card.identity.get('designation') or '' }}</span></li>
+      <li><span class="fn">{{ 'Team submission' if card.identity.get('is_team_submission') else 'Solo submission' }}</span>
+          <span class="fm">
+            {%- for c in card.identity.co_submitters if c.name %}{{ c.name }}{% if not loop.last %}, {% endif %}{% endfor -%}
+          </span></li>
+      <li><span class="fn">Submitted</span>
+          <span class="fm">{{ card.identity.get('date_of_submission') or '—' }}</span></li>
+    </ul>
+  </div>
+  {% endif %}
+</div>
+
+{% if can_override %}
+{% include "_editsheet.html" %}
+<script>
+/* The page shows every sub-score and its evidence, so after an amendment the
+   honest thing is to re-read the record rather than patch one number on screen
+   and leave the rest of the page describing the old one. */
+document.addEventListener('score-edited', function () { window.location.reload(); });
+
+/* The review pill, same behaviour as the table. */
+(function () {
+  var pill = document.querySelector('.review-pill[data-review]');
+  if (!pill) return;
+  pill.addEventListener('click', function () {
+    var next = pill.getAttribute('data-state') === 'approved' ? 'pending' : 'approved';
+    pill.disabled = true;
+    var body = new URLSearchParams();
+    body.set('decision', next);
+    fetch(pill.getAttribute('data-review'), {
+      method: 'POST', credentials: 'same-origin', body: body,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'fetch'
+      }
+    })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        var approved = data.decision === 'approved';
+        pill.setAttribute('data-state', data.decision);
+        pill.setAttribute('aria-pressed', String(approved));
+        pill.querySelector('.txt').textContent = approved ? 'Approved' : 'Pending review';
+        pill.querySelector('use').setAttribute('href', approved ? '#i-tick' : '#i-clock');
+        pill.classList.remove('flip');
+        void pill.offsetWidth;
+        pill.classList.add('flip');
+      })
+      .catch(function (err) {
+        window.alert('The decision could not be saved: ' + (err.message || err));
+      })
+      .then(function () { pill.disabled = false; });
+  });
+})();
+</script>
+{% endif %}
+
+{% endblock %}

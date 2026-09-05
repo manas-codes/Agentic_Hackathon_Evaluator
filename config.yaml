@@ -1,0 +1,94 @@
+# CAG 101 Innovation Ideas — Evaluation Framework configuration
+# Anything that changes how submissions are scored lives here or in rubrics/.
+# Changing scoring-relevant settings should be accompanied by a rubric version bump.
+
+paths:
+  submissions: data/submissions   # one sub-folder per submission
+  cache: data/cache               # extracted text, transcripts, digests
+  exports: data/exports           # generated .xlsx / .csv
+  database: data/app.db           # SQLite for the pilot; swap for a Postgres URL at scale
+
+rubric:
+  active: cag101_v1               # file in rubrics/ without the .yaml extension
+
+llm:
+  # Scoring model. Opus 5 is the default — rubric judgement is the part of this
+  # system that most needs capability, and the scores are the deliverable.
+  # After calibration you may switch to claude-sonnet-5 for the bulk run if cost
+  # requires it; measure agreement on the gold set before doing so.
+  scoring_model: claude-opus-5
+  # Verification and tie-breaks: the adversarial pass that can lower scores.
+  verification_model: claude-opus-5
+  # Form-mapping and digests are mechanical; the cheaper model is sufficient.
+  utility_model: claude-sonnet-5
+
+  # NOTE: `temperature` is NOT set. It is rejected with HTTP 400 on Opus 5 and
+  # Sonnet 5. Repeatability comes from the fixed rubric, anchored bands,
+  # structured output schemas and multiple passes — not from a sampling knob.
+
+  # Thinking depth / token spend. low | medium | high | xhigh | max
+  effort: high
+  # Adaptive thinking is on by default on Opus 5; kept explicit for clarity.
+  thinking: adaptive
+  max_output_tokens: 16000
+  max_retries: 5
+  retry_base_delay_seconds: 2
+
+  # Cache the rubric + instruction prefix across submissions. The rubric slice is
+  # identical for every submission scored on a given criterion, so this is a
+  # large saving on a 400-submission run.
+  enable_prompt_caching: true
+
+  # Batch API halves the cost and suits an overnight 400-submission run.
+  # Off for the pilot, where turnaround matters more than price.
+  use_batch_api: false
+
+pipeline:
+  concurrency: 6                  # submissions in flight; raise cautiously against rate limits
+  scoring_passes: 2               # independent passes per submission
+  disagreement_threshold: 8       # points; above this a third pass runs and the case is flagged
+  enable_verifier: true           # adversarial pass that can only lower unsupported scores
+  enable_clustering: true         # similar-idea library (Concept Paper §IV.e)
+  cluster_similarity: 0.82        # cosine threshold for grouping similar ideas
+
+privacy:
+  # De-identification is applied before ANY content reaches the model.
+  deidentify_before_llm: true
+  # Section 1 fields are held in a restricted table and excluded from model input.
+  restricted_fields:
+    - full_name
+    - designation
+    - official_email
+    - mobile
+    - co_submitters
+    - primary_submitter_name
+    - signature
+  # Office / state is masked during scoring so evaluation cannot favour a formation.
+  blind_office: true
+  # Aadhaar-shaped and other ID-shaped numbers are redacted and flagged wherever found.
+  redact_id_numbers: true
+
+cost:
+  # Hard ceiling for a single run. The run halts rather than overspending.
+  max_run_cost_inr: 15000
+  # Warn in the run log once this fraction of the ceiling is consumed.
+  warn_at_fraction: 0.7
+  # Used only to convert published USD rates into INR for reporting.
+  # Update before quoting figures to anyone — this is an assumption, not a rate
+  # sourced from RBI.
+  usd_to_inr: 88.0
+
+extraction:
+  # A PDF page yielding fewer characters than this is treated as scanned.
+  ocr_char_threshold: 50
+  enable_ocr: false               # needs the Tesseract binary on PATH
+  enable_video_transcription: false  # needs ffmpeg + faster-whisper
+  video_keyframe_interval_seconds: 30
+  max_transcript_chars: 40000
+
+portal:
+  host: 127.0.0.1
+  port: 8000
+  session_hours: 8
+  max_failed_logins: 5
+  lockout_minutes: 15

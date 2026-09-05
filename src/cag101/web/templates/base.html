@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Evaluation Portal{% endblock %} · CAG 101</title>
+  <link rel="icon" href="/static/img/cag-emblem.png">
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+</head>
+<body>
+
+{# icon set: inline, stroke-based, no icon font and no external request #}
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+    <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+  </symbol>
+  <symbol id="i-table" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>
+  </symbol>
+  <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/>
+    <path d="M16.5 6.2a3 3 0 0 1 0 5.6M18 20a6 6 0 0 0-2-4.5"/>
+  </symbol>
+  <symbol id="i-out" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 17l5-5-5-5M20 12H9M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/>
+  </symbol>
+  <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 17L17 7M17 7H9M17 7v8"/>
+  </symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/>
+  </symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14.5 6l-6 6 6 6"/>
+  </symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3z"/>
+  </symbol>
+  <symbol id="i-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 12.5l4.5 4.5L19.5 6.5"/>
+  </symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>
+  </symbol>
+</svg>
+
+<div class="shell">
+  <aside class="rail" id="rail">
+    <div class="brand">
+      <img src="/static/img/cag-emblem.png"
+           alt="Emblem of the Comptroller and Auditor General of India">
+      <div class="brandtext">
+        <div class="title">Evaluation Portal</div>
+        <div class="subtitle">CAG 101 &middot; PPG Wing</div>
+      </div>
+    </div>
+
+    {# Sibling of the brand, not a child: expanded it floats on the rail's edge,
+       collapsed it takes its own row under the emblem, where it cannot sit on
+       top of the crest. #}
+    <button type="button" class="railtoggle" id="railToggle"
+            aria-expanded="true" aria-controls="rail"
+            title="Collapse the panel">
+      <svg aria-hidden="true"><use href="#i-chev"/></svg>
+      <span class="sr">Collapse the panel</span>
+    </button>
+
+    {% if user %}
+    <nav aria-label="Sections">
+      <div class="navlabel">Evaluation</div>
+      <a class="item {{ 'active' if tab == 'overview' }}" href="/overview" title="Overview">
+        <svg><use href="#i-grid"/></svg> <span class="lbl">Overview</span>
+      </a>
+      <a class="item {{ 'active' if tab == 'scorecards' }}" href="/scorecards" title="Scorecards">
+        <svg><use href="#i-table"/></svg> <span class="lbl">Scorecards</span>
+      </a>
+      {% if is_admin %}
+      <div class="navlabel" style="padding-top:0.8rem">Administration</div>
+      <a class="item {{ 'active' if tab == 'admin' }}" href="/admin/users" title="Users">
+        <svg><use href="#i-users"/></svg> <span class="lbl">Users</span>
+      </a>
+      {% endif %}
+    </nav>
+
+    <div class="spacer"></div>
+
+    <div class="whoami">
+      <span class="av">{{ (user.full_name or user.username)[:1]|upper }}</span>
+      <div>
+        <div class="nm">{{ user.full_name or user.username }}</div>
+        <div class="rl">{{ user.role }}</div>
+      </div>
+      <form method="post" action="/logout">
+        <button type="submit" class="link" title="Sign out" aria-label="Sign out">
+          <svg><use href="#i-out"/></svg>
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </aside>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script>
+/* Rail collapse. The preference is per-browser and survives navigation, so an
+   evaluator who wants the full table width keeps it on every page. Applied
+   before first paint would be better still; it is applied here because the
+   stylesheet is the only thing in <head> and there is no inline head block. */
+(function () {
+  var KEY = 'cag101.rail.collapsed';
+  var btn = document.getElementById('railToggle');
+  if (!btn) return;
+
+  function apply(collapsed) {
+    document.body.classList.toggle('rail-collapsed', collapsed);
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    var label = collapsed ? 'Expand the panel' : 'Collapse the panel';
+    btn.setAttribute('title', label);
+    btn.querySelector('.sr').textContent = label;
+  }
+
+  var stored = false;
+  try { stored = localStorage.getItem(KEY) === '1'; } catch (e) { /* private mode */ }
+  apply(stored);
+
+  btn.addEventListener('click', function () {
+    var collapsed = !document.body.classList.contains('rail-collapsed');
+    apply(collapsed);
+    try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch (e) { /* ignore */ }
+  });
+})();
+
+/* Count-up on the KPI figures. Small, dependency-free, and it stops instantly
+   for anyone who has asked for reduced motion — the final value is written
+   straight in rather than animated to. */
+(function () {
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var nodes = document.querySelectorAll('[data-count]');
+  if (!nodes.length) return;
+
+  nodes.forEach(function (el) {
+    var target = parseFloat(el.getAttribute('data-count'));
+    if (isNaN(target)) return;
+    var dp = (el.getAttribute('data-dp') || '0') | 0;
+    if (reduce) { el.textContent = target.toFixed(dp); return; }
+
+    var start = null, dur = 850;
+    function frame(ts) {
+      if (start === null) start = ts;
+      var t = Math.min((ts - start) / dur, 1);
+      var eased = 1 - Math.pow(1 - t, 3);          /* ease-out cubic */
+      el.textContent = (target * eased).toFixed(dp);
+      if (t < 1) requestAnimationFrame(frame);
+      else el.textContent = target.toFixed(dp);
+    }
+    el.textContent = (0).toFixed(dp);
+    requestAnimationFrame(frame);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sign in · CAG 101 Evaluation Portal</title>
+  <link rel="icon" href="/static/img/cag-emblem.png">
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_version }}">
+</head>
+<body class="login-page">
+<div class="login-shell">
+  <div class="login-card">
+    <span class="emblem">
+      <img src="/static/img/cag-emblem.png"
+           alt="Emblem of the Comptroller and Auditor General of India">
+    </span>
+    <div class="wordmark">Evaluation Portal</div>
+    <div class="dept">Indian Audit &amp; Accounts Department</div>
+
+    <h1>Sign in to continue</h1>
+    <p class="lede">CAG 101 Innovation Ideas Initiative &middot; PPG Wing</p>
+
+    {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="field">
+        <label for="username">Username<span class="req">*</span></label>
+        <input type="text" id="username" name="username" value="{{ username or '' }}"
+               placeholder="e.g. evaluator" autocomplete="username" autofocus required>
+      </div>
+      <div class="field">
+        <label for="password">Password<span class="req">*</span></label>
+        <input type="password" id="password" name="password"
+               placeholder="Type your password" autocomplete="current-password" required>
+      </div>
+
+      {# The reference had "remember me" and "forgot password". Neither exists in
+         this portal: sessions are a fixed length and an administrator resets
+         passwords. Rather than ship a checkbox that does nothing and a link that
+         goes nowhere, the row states the real session length and the reset route. #}
+      <div class="row">
+        <span class="session">Sessions last {{ session_hours }} hours.</span>
+        <button type="button" class="reset" aria-expanded="false"
+                aria-controls="resetNote"
+                onclick="var n=document.getElementById('resetNote');
+                         var open=n.hasAttribute('hidden');
+                         if(open){n.removeAttribute('hidden')}else{n.setAttribute('hidden','')}
+                         this.setAttribute('aria-expanded', open)">
+          Forgot password?
+        </button>
+      </div>
+      <p class="reset-note" id="resetNote" hidden>
+        Passwords are reset by the portal administrator, not by email. Ask PPG Wing
+        to issue a new one — you will be asked to change it at first sign-in, and
+        the reset is recorded in the audit log.
+      </p>
+
+      <button type="submit">Sign in</button>
+    </form>
+
+    <p class="scheme">Award presentation on Audit Diwas &middot; 16 November 2026</p>
+    <p class="foot">
+      For internal departmental use. Access is logged. Submission material is
+      confidential &mdash; do not share exports outside the evaluation process.
+    </p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,337 @@
+id: cag101
+version: v1
+name: CAG 101 Innovation Ideas Initiative
+authority: >-
+  Revised Concept Paper, "The CAG 101 Innovation Ideas Initiative", PPG Wing,
+  O/o CAG of India, Edition FY 2026-27 — Section IV(d) Evaluation Criteria.
+  The four criteria and their 25% weights are prescribed by the scheme.
+  The sub-criteria below are an internal decomposition to make scoring
+  consistent and auditable; they do not alter the prescribed weights.
+total: 100
+frozen: false   # set true once calibrated; a frozen rubric cannot be edited without a version bump
+
+# ---------------------------------------------------------------------------
+# Scoring bands. Applied to every sub-criterion and pro-rated to its maximum.
+# ---------------------------------------------------------------------------
+bands:
+  - name: Absent
+    lo: 0.00
+    hi: 0.20
+    definition: >-
+      Not addressed at all, or addressed only by unsupported assertion with no
+      substance a reader could act on.
+  - name: Weak
+    lo: 0.21
+    hi: 0.45
+    definition: >-
+      Addressed in generic terms. Claims are plausible but non-specific — no
+      concrete mechanism, numbers, or named context.
+  - name: Adequate
+    lo: 0.46
+    hi: 0.70
+    definition: >-
+      Clearly addressed with specifics. A reader understands what is proposed and
+      why, though key aspects remain asserted rather than demonstrated.
+  - name: Strong
+    lo: 0.71
+    hi: 0.88
+    definition: >-
+      Specific, internally consistent and well-reasoned, with partial evidence —
+      worked examples, stated assumptions, or a described trial.
+  - name: Exceptional
+    lo: 0.89
+    hi: 1.00
+    definition: >-
+      Specific and evidenced. Supported by pilot results, measured data,
+      demonstrable artefacts, or metrics with a sound and stated basis.
+
+# ---------------------------------------------------------------------------
+# Evidence discipline — enforced by the verifier, not left to the scorer.
+# ---------------------------------------------------------------------------
+evidence_policy:
+  require_quote_above_band: Adequate
+  no_evidence_marker: NO_EVIDENCE_FOUND
+  rule: >-
+    Every sub-score must carry at least one verbatim quote from the submission
+    (with source file and locator) or the literal marker NO_EVIDENCE_FOUND.
+    A sub-score placed above the Adequate band while carrying the no-evidence
+    marker is invalid and must be re-scored down into Weak or Absent.
+  attachment_credit: >-
+    Material in attachments (deck, demo video transcript, concept note) counts
+    as evidence on the same footing as the form. Absence of an attachment is not
+    penalised directly — it is reflected in the evidence available for scoring.
+
+# ---------------------------------------------------------------------------
+# Criteria
+# ---------------------------------------------------------------------------
+criteria:
+  - key: innovation_originality
+    name: Innovation and Originality
+    weight: 25
+    scheme_focus: >-
+      Assessment of the novelty, uniqueness, and innovativeness of the proposed
+      initiative or solution.
+    sub_criteria:
+      - key: novelty_vs_practice
+        name: Novelty versus existing IA&AD practice
+        max: 10
+        question: >-
+          How new is this relative to what IA&AD offices already do? Does it go
+          beyond digitising an existing manual step or restating a known good
+          practice?
+        look_for:
+          - Explicit statement of what exists today and how this departs from it
+          - A mechanism that is genuinely absent from current practice
+          - Awareness of comparable tools or circulars already in the Department
+        red_flags:
+          - Re-labelling of an existing system or an already-mandated process
+          - Buzzword-led novelty ("AI-powered") with no described mechanism
+          - No reference to the current baseline, so novelty cannot be judged
+
+      - key: distinctiveness
+        name: Distinctiveness of the approach
+        max: 8
+        question: >-
+          Is the approach itself distinctive — in method, data used, or framing —
+          rather than a routine application of a common tool?
+        look_for:
+          - A non-obvious method, data source, or combination of techniques
+          - Clear differentiation from off-the-shelf products
+          - Reasoning for why this approach beats the obvious alternative
+        red_flags:
+          - Generic dashboard or generic chatbot with no domain-specific design
+          - Approach entirely determined by a vendor product
+
+      - key: problem_solution_fit
+        name: Creativity of the problem-solution fit
+        max: 7
+        question: >-
+          Does the solution creatively and precisely target the problem stated,
+          or is it a general-purpose tool loosely attached to a problem?
+        look_for:
+          - Direct, traceable line from the stated pain point to each solution feature
+          - Elegance — a small intervention that removes a large friction
+        red_flags:
+          - Solution addresses a different problem from the one described
+          - Solution far larger than the problem warrants
+
+  - key: institutional_relevance
+    name: Institutional Relevance
+    weight: 25
+    scheme_focus: >-
+      Assessment of the extent to which the initiative addresses institutional
+      needs, challenges, priorities, or process improvements within SAI India.
+    sub_criteria:
+      - key: problem_validity
+        name: Validity and severity of the problem identified
+        max: 10
+        question: >-
+          Is the problem real, well characterised, and material to audit,
+          accounts, entitlement, administration or outreach functions?
+        look_for:
+          - The specific process, system or workflow with the gap is named
+          - Some indication of scale or frequency of the pain point
+          - The problem is one an IA&AD practitioner would recognise
+        red_flags:
+          - Problem stated as an abstraction ("lack of digitisation")
+          - Problem already solved by an existing departmental system
+          - Problem outside the CAG mandate
+
+      - key: mandate_alignment
+        name: Alignment with mandate, pillars and thematic area
+        max: 8
+        question: >-
+          Does it sit within the scheme's three pillars (Audit & Accounting,
+          Administration, Outreach & Impact) and the declared thematic area A-D,
+          and does it serve stated institutional priorities?
+        look_for:
+          - Correct and honest self-classification against the thematic area
+          - Connection to priorities such as risk-based audit, real-time oversight,
+            data-driven administration, or citizen-centric accountability
+        red_flags:
+          - Declared theme does not match the content of the submission
+          - Relevance argued only in generic governance language
+
+      - key: usability
+        name: Usability by the intended offices and wings
+        max: 7
+        question: >-
+          Would the intended users — auditors, accounts staff, administrative
+          wings — actually be able and willing to use this in their daily work?
+        look_for:
+          - Named user groups, offices, wings, or audit types
+          - Consideration of existing workload, skills and training need
+          - Fit with existing systems and workflows rather than a parallel process
+        red_flags:
+          - Assumes skills or infrastructure most offices do not have
+          - Adds a step without removing one
+
+  - key: feasibility_scalability
+    name: Feasibility and Scalability
+    weight: 25
+    scheme_focus: >-
+      Assessment of practicality of implementation, operational viability,
+      manpower and resource requirements, and long-term sustainability.
+    sub_criteria:
+      - key: implementation_practicality
+        name: Implementation practicality and resource realism
+        max: 9
+        question: >-
+          Can this actually be built and rolled out with realistic money,
+          manpower and time? Are the stated costs and effort credible?
+        look_for:
+          - A described implementation path with sequence and rough effort
+          - Cost and recurring-cost figures that are consistent with the design
+          - Honest acknowledgement of dependencies and prerequisites
+        red_flags:
+          - 'Cost described as "minimal" for a system requiring substantial build'
+          - No implementation path at all — only the end state described
+          - Depends on data or approvals the team has no route to
+
+      - key: technical_scalability
+        name: Technical and operational scalability
+        max: 9
+        question: >-
+          Will it hold up across more offices, users and data volume — up to the
+          130+ offices of IA&AD — without a rebuild?
+        look_for:
+          - Central hosting or deployment model stated (form field 4.2)
+          - Named bottlenecks and how they would be handled
+          - Design that tolerates state-level variation in data and process
+        red_flags:
+          - Single-machine or single-office design presented as pan-India
+          - Depends on per-office manual configuration at every site
+          - Scalability asserted with no technical reasoning
+
+      - key: sustainability_governance
+        name: Sustainability, data governance and security readiness
+        max: 7
+        question: >-
+          Will the improvement last beyond its champions, and are data privacy,
+          security and ownership addressed proportionately to the risk?
+        look_for:
+          - Named owner, wing or institutional home for continued operation
+          - Handling of sensitive audit data, residency, access control
+          - Maintenance and update plan; not dependent on one individual
+        red_flags:
+          - Sensitive audit or personal data involved with no safeguards described
+          - Sustained only by the enthusiasm of the submitting team
+          - No answer to who runs it after the pilot
+        notes: >-
+          Judge proportionately. A process redesign with no data component should
+          not be penalised for a thin answer to a technology question — the form
+          itself marks Section 3 as optional for non-technology initiatives.
+
+  - key: potential_impact
+    name: Potential Impact
+    weight: 25
+    scheme_focus: >-
+      Assessment of the likely impact on efficiency, timelines, quality,
+      monitoring, outreach, or institutional effectiveness.
+    sub_criteria:
+      - key: quantified_impact
+        name: Credibility of quantified impact and assumptions
+        max: 10
+        question: >-
+          Are the impact estimates in form field 4.2 quantified, and does the
+          stated basis or assumption actually support the number?
+        look_for:
+          - Numbers with an explicit and checkable basis
+          - Pilot or test results rather than projections (form field 2.7)
+          - Conservative, reasoned estimates in preference to round claims
+        red_flags:
+          - Large round percentages with no basis ("50% time saving")
+          - Impact table left blank or filled with restatements of the solution
+          - Basis contradicts the number given
+
+      - key: beneficiary_breadth
+        name: Breadth of beneficiaries and coverage
+        max: 8
+        question: >-
+          How many offices, functions, audit types or external stakeholders stand
+          to benefit, and is that breadth argued rather than assumed?
+        look_for:
+          - Specific offices, wings, audit types or stakeholder groups named
+          - Honest scoping when the benefit is genuinely narrow but deep
+          - Expansion of coverage of data, schemes, entities or transactions
+        red_flags:
+          - 'Applicability to "all 130+ offices" claimed for something inherently local'
+          - Beneficiaries not identified at all
+
+      - key: improvement_depth
+        name: Depth of improvement delivered
+        max: 7
+        question: >-
+          Where it applies, how much does it actually change outcomes — in
+          efficiency, timeliness, quality, monitoring, or outreach?
+        look_for:
+          - Change in a real outcome, not just an intermediate output
+          - Improvement in audit quality, assurance, or public accessibility
+          - Additional risks or cases surfaced that would otherwise be missed
+        red_flags:
+          - Improvement confined to convenience for the submitting team
+          - Benefit is a report that nobody is shown to need
+
+# ---------------------------------------------------------------------------
+# Non-scoring attributes captured for the dashboard, routing and the idea library.
+# These never affect the score. They inform the committees.
+# ---------------------------------------------------------------------------
+flags:
+  - key: completeness
+    values: [complete, minor_gaps, incomplete]
+    basis: Mandatory form fields, primary attachment (6.1), signed declaration
+  - key: development_stage
+    values: [concept, early_prototype, pilot_tested, partially_deployed, ready_for_scale, other, not_stated]
+    basis: Form field 2.4
+  - key: evidence_strength
+    values: [deployed_with_data, piloted_with_results, tested_no_results, claimed_only]
+    basis: Form field 2.7 and attachments
+  - key: thematic_area
+    values: [A, B, C, D, unclear]
+    basis: Form field 2.1
+  - key: theme_mismatch
+    values: [true, false]
+    basis: Declared theme versus content assessed by the screener
+  - key: solution_type
+    values: [framework_methodology, application_software, process_redesign, dashboard_visualisation, hardware_iot, ai_ml_llm, other]
+    basis: Form field 2.3
+  - key: formation_category
+    values: [union, state, other, special_category_state, unknown]
+    basis: >-
+      Submitting office, mapped to the four evaluation streams. Special Category
+      States are Arunachal Pradesh, Jammu & Kashmir, Manipur, Meghalaya, Mizoram,
+      Nagaland, Sikkim and Tripura (Concept Paper §IV).
+  - key: technology_centric
+    values: [true, false]
+    basis: Whether Section 3 applies at all
+  - key: privacy_concern_raised
+    values: [true, false]
+    basis: Form field 3.4
+  - key: id_number_detected
+    values: [true, false]
+    basis: Automated scan; triggers redaction before any model call
+  - key: naeg_candidate_hint
+    values: [true, false]
+    basis: >-
+      Indicative only — a digital-governance solution at pilot stage or beyond,
+      which the Filtering Committee may wish to consider for the National Awards
+      for e-Governance (Concept Paper §IV.b). Not a recommendation.
+  - key: human_review_required
+    values: [true, false]
+    basis: >-
+      Set when scoring passes disagree beyond the configured threshold, when the
+      submission falls in the top or bottom decile, when OCR or media derivation
+      was used, or when the form-mapper confidence is low.
+
+# ---------------------------------------------------------------------------
+# Special Category States handling, per Concept Paper §IV.b
+# ---------------------------------------------------------------------------
+special_category_guidance: >-
+  The common evaluation criteria apply to Special Category submissions, but due
+  account must be taken of the geographical, logistical, connectivity,
+  infrastructural and human-resource environment in which the innovation was
+  conceived or implemented. In practice: do not penalise a Special Category
+  submission under Feasibility and Scalability for constraints imposed by its
+  operating environment, and credit ingenuity shown in working within those
+  constraints. This guidance is injected into the scorer prompt only when the
+  formation category is special_category_state. It adjusts judgement, not weights.

@@ -1,0 +1,30 @@
+# Secrets
+.env
+
+# Submission material and derived data — never commit CAG submission content
+data/submissions/
+data/cache/
+data/exports/
+
+# Authored evaluations quote submissions verbatim. Unpublished departmental
+# material — keep it out of the repository even when the repository is private.
+evaluations/
+
+# Internal strategy notes: these name a competing internal team.
+docs/designs/
+*.db
+*.db-journal
+*.sqlite
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

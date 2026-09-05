@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+
+{% block content %}
+
+{% if new_password %}
+<div class="notice">
+  <strong>User &ldquo;{{ new_username }}&rdquo; created.</strong>
+  Temporary password: <code>{{ new_password }}</code><br>
+  This is shown once. Pass it to the user over a channel separate from the portal
+  link, and they will be required to change it at first sign-in.
+</div>
+{% endif %}
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <h2>Add a user</h2>
+  <form class="filters" method="post" action="/admin/users">
+    <div class="field">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" required>
+    </div>
+    <div class="field">
+      <label for="full_name">Full name</label>
+      <input type="text" id="full_name" name="full_name" style="min-width:220px">
+    </div>
+    <div class="field">
+      <label for="role">Role</label>
+      <select id="role" name="role">
+        <option value="viewer">viewer — read and export only</option>
+        <option value="evaluator">evaluator — may override scores, sees identity</option>
+        <option value="admin">admin — full control</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button type="submit">Create user</button>
+    </div>
+  </form>
+  <p class="tiny muted mt mb0">
+    <strong>viewer</strong> sees scorecards and evidence but not the submitting
+    office or submitter details. <strong>evaluator</strong> additionally sees the
+    restricted identity record and may override criterion scores, with the
+    justification recorded against their name. <strong>admin</strong> can also
+    manage users.
+  </p>
+</div>
+
+<div class="card">
+  <h2>Existing users</h2>
+  <div class="table-wrap">
+    <table class="plain">
+      <thead>
+        <tr><th>Username</th><th>Name</th><th>Role</th><th>State</th>
+            <th>Password</th><th>Last sign-in</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.username }}</td>
+          <td>{{ u.full_name or '—' }}</td>
+          <td><span class="badge brand">{{ u.role }}</span></td>
+          <td>
+            {% if u.is_active %}<span class="badge good">active</span>
+            {% else %}<span class="badge critical">disabled</span>{% endif %}
+            {% if u.locked_until %}<span class="badge warn">locked</span>{% endif %}
+          </td>
+          <td>
+            {% if u.must_change_password %}
+              <span class="badge warn">temporary</span>
+            {% else %}<span class="muted small">set</span>{% endif %}
+          </td>
+          <td class="small">
+            {{ u.last_login_at|ist('%d-%m-%Y %H:%M') or 'never' }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Audit trail</h2>
+  <p class="small mb0">
+    Every sign-in, failed sign-in, score override and export is recorded in the
+    <code>audit_log</code> table with the user, timestamp and IP address. Score
+    overrides additionally retain the machine score, the human score and the
+    justification, so any change to a committee-facing figure can be traced to
+    the officer who made it.
+  </p>
+</div>
+
+{% endblock %}

@@ -1,0 +1,129 @@
+{# Shared edit-score dialog.
+   Included by the scorecards table and by a submission's own scorecard, so the
+   two screens cannot drift apart on what an amendment asks for or how it is
+   validated. Any button carrying data-edit opens it; on success the dialog
+   fires a "score-edited" event and leaves it to the page to decide what to
+   refresh. #}
+<dialog class="sheet edit-sheet" id="editSheet" aria-label="Edit score">
+  <form id="editForm" method="post">
+    <div class="sheet-head">
+      <div>
+        <div class="micro" id="editRef"></div>
+        <h2 style="font-size: var(--t-md); margin-top: 0.2rem" id="editName"></h2>
+      </div>
+      <button class="closer" type="button" data-close aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-body">
+      <input type="hidden" name="criterion" id="editCriterion">
+      <div class="edit-row">
+        <div class="edit-field">
+          <label for="editScore">Score <span id="editOutOf" class="muted"></span></label>
+          <input type="number" id="editScore" name="human_score" step="0.5" min="0" required>
+        </div>
+        <div class="was">Assessed at <b id="editMachine"></b></div>
+      </div>
+      <div class="edit-field">
+        <label for="editNote">Rationale / review note</label>
+        <textarea id="editNote" name="justification" required minlength="20"
+                  placeholder="State what the assessment missed or misread, and on what basis you are changing the mark."></textarea>
+        <span class="tiny muted">
+          Recorded against your name and kept in the audit trail. Minimum 20 characters.
+        </span>
+      </div>
+      <div class="edit-err" id="editErr" hidden></div>
+      <div class="edit-actions">
+        <button type="submit" id="editSubmit">Save score</button>
+        <button type="button" class="secondary" data-close>Cancel</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  var sheet = document.getElementById('editSheet');
+  var form = document.getElementById('editForm');
+  var err = document.getElementById('editErr');
+  if (!sheet || !form) return;
+
+  var source = null;      /* the Edit button that opened the dialog */
+
+  function open() {
+    if (sheet.open) return;
+    if (typeof sheet.showModal === 'function') { sheet.showModal(); }
+    else { sheet.setAttribute('open', ''); }      /* no <dialog> support */
+  }
+  function close() { if (sheet.open) sheet.close(); }
+
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest ? ev.target.closest('[data-edit]') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    source = btn;
+
+    form.setAttribute('action', btn.getAttribute('data-edit'));
+    document.getElementById('editRef').textContent =
+      btn.getAttribute('data-ref') + ' · revise score';
+    document.getElementById('editName').textContent = btn.getAttribute('data-criterion-name');
+    document.getElementById('editCriterion').value = btn.getAttribute('data-criterion');
+    document.getElementById('editOutOf').textContent =
+      '(0 – ' + btn.getAttribute('data-max') + ')';
+    document.getElementById('editMachine').textContent =
+      btn.getAttribute('data-machine') + ' / ' + btn.getAttribute('data-max');
+
+    var score = document.getElementById('editScore');
+    score.setAttribute('max', btn.getAttribute('data-max'));
+    score.value = btn.getAttribute('data-score');
+    document.getElementById('editNote').value = btn.getAttribute('data-note') || '';
+
+    err.hidden = true;
+    open();
+    score.focus();
+    score.select();
+  });
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var submit = document.getElementById('editSubmit');
+    submit.disabled = true;
+    err.hidden = true;
+
+    fetch(form.getAttribute('action'), {
+      method: 'POST', credentials: 'same-origin',
+      body: new URLSearchParams(new FormData(form)),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'fetch'
+      }
+    })
+      .then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+      })
+      .then(function (res) {
+        if (!res.ok || res.d.error) {
+          throw new Error(res.d.error || res.d.detail || 'The score could not be saved.');
+        }
+        var note = document.getElementById('editNote').value;
+        if (source) {
+          source.setAttribute('data-score', res.d.score.toFixed(1));
+          source.setAttribute('data-note', note);
+        }
+        close();
+        document.dispatchEvent(new CustomEvent('score-edited', {
+          detail: { data: res.d, note: note, source: source }
+        }));
+      })
+      .catch(function (e) {
+        err.textContent = String(e.message || e);
+        err.hidden = false;
+      })
+      .then(function () { submit.disabled = false; });
+  });
+
+  sheet.addEventListener('click', function (ev) { if (ev.target === sheet) close(); });
+  document.addEventListener('click', function (ev) {
+    var c = ev.target.closest ? ev.target.closest('#editSheet [data-close]') : null;
+    if (c) { ev.preventDefault(); close(); }
+  });
+})();
+</script>

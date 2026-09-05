@@ -1,0 +1,262 @@
+id: category1
+version: v1
+name: CAG's Awards for Innovation and Excellence in Public Auditing and Accounting — Category-I
+authority: >-
+  Scheme for CAG's Awards for Innovation and Excellence in Public Auditing and
+  Accounting, Category-I Awards | Audit Diwas 2026, O/o CAG of India —
+  Section 10 Evaluation Criteria. The four criteria and their point weightages
+  (40/30/20/10) are prescribed by the scheme. Sub-criteria are an internal
+  decomposition for consistency and do not alter the prescribed weightages.
+total: 100
+frozen: false
+
+# Category-I differs from CAG 101 in a way that must shape scoring: it recognises
+# initiatives ALREADY IMPLEMENTED during 01-04-2025 to 31-03-2026 with
+# demonstrated measurable impact. Proposals that are still ideas or need
+# mentoring belong under CAG 101 and should be flagged, not scored generously.
+eligibility_notes:
+  period_of_consideration: 01-04-2025 to 31-03-2026
+  team_size_max: 6
+  rules:
+    - Tangible achievement of milestones must fall within the period of consideration.
+    - Audit Reports qualify only if laid in Parliament or the Legislature in 2025-26.
+    - The award goes to a team, not an individual and not an entire office.
+    - The same proposal must not be submitted under both Category-I and CAG 101.
+    - Applications with incomplete or insufficient details are liable for rejection at screening.
+
+bands:
+  - name: Absent
+    lo: 0.00
+    hi: 0.20
+    definition: Not addressed, or asserted with no substance.
+  - name: Weak
+    lo: 0.21
+    hi: 0.45
+    definition: Generic treatment; no specifics, no evidence of actual implementation.
+  - name: Adequate
+    lo: 0.46
+    hi: 0.70
+    definition: Clearly described and implemented, but impact largely asserted.
+  - name: Strong
+    lo: 0.71
+    hi: 0.88
+    definition: Implemented with specific described outcomes and partial documentary evidence.
+  - name: Exceptional
+    lo: 0.89
+    hi: 1.00
+    definition: >-
+      Implemented with measured, documented outcomes — data, testimonials, or
+      artefacts that a committee could independently verify.
+
+evidence_policy:
+  require_quote_above_band: Adequate
+  no_evidence_marker: NO_EVIDENCE_FOUND
+  rule: >-
+    Every sub-score must carry at least one verbatim quote with source and
+    locator, or the marker NO_EVIDENCE_FOUND. Because Category-I recognises
+    completed work, an unevidenced claim of impact cannot be scored above Weak
+    on any Benefits sub-criterion.
+
+criteria:
+  - key: the_solution
+    name: The Solution
+    weight: 40
+    scheme_focus: >-
+      Originality, relevance, problem-solution fit, quality of design and extent
+      to which the solution improves earlier processes/products.
+    sub_criteria:
+      - key: originality
+        name: Originality and relevance
+        max: 15
+        question: How original is the initiative, and how relevant to the Department's functions?
+        look_for:
+          - Departure from prevailing practice, stated against a described baseline
+          - Relevance to auditing, accounting, entitlement, administration or capacity building
+        red_flags:
+          - Routine compliance with an existing instruction presented as innovation
+          - No baseline described, so improvement cannot be judged
+
+      - key: problem_solution_fit
+        name: Problem definition and problem-solution fit
+        max: 15
+        question: >-
+          Was the challenge clearly defined (scheme para 5.2) and does the
+          solution answer precisely that challenge (para 5.3)?
+        look_for:
+          - Explicit problem statement with the locus of the deficiency identified
+          - Traceable line from problem to each element of the solution
+        red_flags:
+          - Problem and solution described independently of one another
+          - Solution predates the problem statement
+
+      - key: design_quality
+        name: Quality of design and improvement over earlier process
+        max: 10
+        question: >-
+          Is the design sound, and in what specific way did it improve earlier
+          procedures, processes, products or conditions?
+        look_for:
+          - Before-and-after comparison of the process or product
+          - Design choices justified rather than merely narrated
+          - Flow charts or diagrammatic representation as invited by para 5
+        red_flags:
+          - Improvement claimed without stating what it improved upon
+
+  - key: benefits
+    name: Benefits
+    weight: 30
+    scheme_focus: >-
+      Measurable impact, benefits to Department/stakeholders, improvements in
+      quality, timeliness, cost, governance or service delivery.
+    sub_criteria:
+      - key: measurable_impact
+        name: Measurable, evidenced impact
+        max: 15
+        question: >-
+          Is there clear-cut evidence of demonstrable impact or measurable
+          improvement, as scheme para 4.7 requires?
+        look_for:
+          - Quantified outcomes achieved within the period of consideration
+          - Documentary evidence, testimonials, photos or files attached (para 5.8)
+          - Baseline and post-implementation figures
+        red_flags:
+          - Impact expressed only as expectation or projection
+          - Figures given with no source or period
+
+      - key: stakeholder_benefit
+        name: Benefit to the Department and stakeholders
+        max: 10
+        question: In what specific way are the Department or its stakeholders better off?
+        look_for:
+          - Named beneficiaries inside and outside the Department
+          - Benefit that persists rather than a one-off gain
+        red_flags:
+          - Benefit confined to the convenience of the implementing team
+
+      - key: quality_timeliness_cost
+        name: Gains in quality, timeliness, cost or governance
+        max: 5
+        question: >-
+          Which of the impact areas in scheme para 4.6 were achieved — quality,
+          efficiency and cost, effectiveness, working environment, or governance
+          and policy change?
+        look_for:
+          - Explicit mapping to one or more of the para 4.6 areas
+          - Policy or governance change attributable to the initiative
+        red_flags:
+          - Every impact area claimed at once with evidence for none
+
+  - key: sustainability_replicability
+    name: Sustainability and Replicability
+    weight: 20
+    scheme_focus: >-
+      Durability of improvement and ease of adoption in other offices. If
+      context-specific, relevance and impact may be assessed in lieu of
+      replicability.
+    sub_criteria:
+      - key: durability
+        name: Durability of the improvement
+        max: 10
+        question: >-
+          Are the improvements robust rather than short lived (scheme para 4.8)?
+          Do they survive transfer of the team?
+        look_for:
+          - Institutionalisation — orders issued, systems adopted, process embedded
+          - Continued operation demonstrated over time
+        red_flags:
+          - Runs only while the originating officer remains in post
+          - No evidence of operation beyond the initial implementation
+
+      - key: replicability
+        name: Ease of adoption elsewhere
+        max: 10
+        question: >-
+          Can other offices with a similar set-up adopt this without difficulty
+          (para 4.9)? If it is genuinely context-specific, is the relevance and
+          impact explained with reference to the peculiar circumstances (para 4.10)?
+        look_for:
+          - Adoption already occurring in another office
+          - Transferable artefacts — templates, code, SOPs, training material
+          - Where not replicable, a sound explanation of the peculiar circumstances
+        red_flags:
+          - Replicability asserted but requires resources unique to that office
+        notes: >-
+          Per para 4.10, exceptional innovations dictated by unprecedented or
+          peculiar circumstances — natural disaster, specific geographical
+          terrain — qualify even if not sustainable or replicable. In such cases
+          score this criterion on relevance and impact in lieu of replicability,
+          and record that substitution in the rationale.
+
+  - key: change_management
+    name: Change Management Process
+    weight: 10
+    scheme_focus: >-
+      Quality of planning, implementation, stakeholder engagement,
+      documentation, risk management and overcoming challenges.
+    sub_criteria:
+      - key: planning_implementation
+        name: Quality of planning and implementation
+        max: 4
+        question: >-
+          Was the process of evaluation, planning and implementation described
+          with a credible timeline (paras 5.6 and 5.7)?
+        look_for:
+          - Timeline of conceptualisation, planning and implementation
+          - Evidence of deliberate sequencing rather than retrospective narrative
+        red_flags:
+          - No timeline provided
+          - Implementation described only as an outcome
+
+      - key: stakeholder_documentation
+        name: Stakeholder engagement and documentation
+        max: 3
+        question: Were affected people brought along, and is the work documented?
+        look_for:
+          - Consultation, training, or communication with affected staff
+          - Documentation and files attached per para 5.8
+        red_flags:
+          - Change imposed with no engagement described
+
+      - key: risk_challenges
+        name: Risk management and overcoming challenges
+        max: 3
+        question: What challenges were encountered and how were they overcome?
+        look_for:
+          - Named, credible challenges — including failures and course corrections
+          - Risks identified in advance and mitigated
+        red_flags:
+          - "No challenges were faced"
+          - Challenges listed with no resolution described
+
+flags:
+  - key: completeness
+    values: [complete, minor_gaps, incomplete]
+    basis: >-
+      Scheme para 5 elements — five-page write-up, executive summary, 15-slide
+      deck, word minimums for paras 5.1-5.6, evidence per para 5.8.
+  - key: within_period_of_consideration
+    values: [true, false, unclear]
+    basis: Milestones achieved between 01-04-2025 and 31-03-2026 (para 4.2)
+  - key: team_size_compliant
+    values: [true, false, unclear]
+    basis: Not more than six members (para 4.4)
+  - key: nomination_complete
+    values: [true, false]
+    basis: >-
+      Names, specific contribution of each member, time spent and nature of
+      engagement (para 4.3), nominated by the competent authority (para 4.5)
+  - key: belongs_under_cag101
+    values: [true, false]
+    basis: >-
+      Set when the submission is still an idea, prototype or PoC needing
+      mentoring — such proposals belong under the CAG 101 Initiative per
+      scheme para 1.1, not Category-I.
+  - key: context_specific_substitution
+    values: [true, false]
+    basis: Para 4.10 applied — relevance and impact scored in lieu of replicability
+  - key: formation_category
+    values: [union, state, other, unknown]
+    basis: Submitting office mapped to the three Filtering Committee streams (para 9.1)
+  - key: human_review_required
+    values: [true, false]
+    basis: Disagreement between passes, decile position, or derived-media reliance

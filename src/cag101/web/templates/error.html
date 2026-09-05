@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Not permitted{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:600px">
+  <h2>Not permitted</h2>
+  <div class="error">{{ message }}</div>
+  <p class="small">
+    If you need this access, ask the portal administrator to change your role.
+  </p>
+  <a class="btn secondary" href="/overview">Back to overview</a>
+</div>
+{% endblock %}

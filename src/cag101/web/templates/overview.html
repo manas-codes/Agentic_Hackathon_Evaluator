@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+
+{% block content %}
+
+<div class="workhead">
+  <div>
+    <div class="crumb">CAG 101 Innovation Ideas Initiative</div>
+    <h1>Intake overview</h1>
+  </div>
+  <div style="display:flex; gap:0.5rem; align-items:center">
+    <a class="btn secondary" href="/export.xlsx">Download Excel</a>
+    <a class="btn" href="/scorecards">Open scorecards</a>
+  </div>
+</div>
+
+{# ---- the four headline figures, each carrying its own small chart -------
+   A KPI row of four bare numbers reads as four grey boxes. Each tile here
+   shows the figure and the shape behind it, so the row answers "and how is
+   that distributed" without a second click. ------------------------------- #}
+<div class="tiles">
+
+  {# 1. total submissions — segmented bar: evaluated / pending / blocked #}
+  <div class="tile">
+    <div class="tilehead">
+      <div>
+        <div class="value" data-count="{{ ov.total_submissions }}">{{ ov.total_submissions }}</div>
+        <div class="label">Total submissions</div>
+      </div>
+    </div>
+    {% set m = ov.mix %}
+    {% if ov.total_submissions %}
+    <div class="segbar mini" style="margin-top:0.6rem"
+         role="img" aria-label="{{ m.evaluated }} evaluated, {{ m.pending }} awaiting evaluation, {{ m.blocked }} cannot be evaluated">
+      <i style="width: {{ m.evaluated / ov.total_submissions * 100 }}%; background: var(--p-500)"></i>
+      <i style="width: {{ m.pending / ov.total_submissions * 100 }}%; background: var(--p-300)"></i>
+      <i style="width: {{ m.blocked / ov.total_submissions * 100 }}%; background: var(--st-critical)"></i>
+    </div>
+    {% endif %}
+    <div class="sub">
+      {{ m.evaluated }} scored &middot; {{ m.pending }} awaiting &middot; {{ m.blocked }} blocked
+    </div>
+  </div>
+
+  {# 2. qualified — arc gauge showing the share of the evaluated set #}
+  <div class="tile t-good">
+    <div class="tilehead">
+      <div>
+        <div class="value" data-count="{{ ov.qualified }}">{{ ov.qualified }}</div>
+        <div class="label">Qualified ({{ QUALIFY_AT|int }}+)</div>
+      </div>
+      {% if ov.evaluated %}
+      <div class="mini arc" style="--k: var(--p-500)"
+           role="img" aria-label="{{ ov.qualified_pct }} per cent of the evaluated submissions score above {{ QUALIFY_AT|int }}">
+        <svg viewBox="0 0 36 36" aria-hidden="true">
+          <circle class="bg" cx="18" cy="18" r="{{ ARC_R }}"/>
+          <circle class="fg" cx="18" cy="18" r="{{ ARC_R }}"
+                  style="--len: {{ '%.2f'|format(ov.qualified_pct / 100 * ARC_C) }}"
+                  stroke-dasharray="{{ '%.2f'|format(ov.qualified_pct / 100 * ARC_C) }} {{ ARC_C }}"
+                  stroke-dashoffset="0"/>
+        </svg>
+        <span class="pc">{{ '%.0f'|format(ov.qualified_pct) }}%</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="sub">
+      {% if ov.evaluated %}of {{ ov.evaluated }} evaluated
+      {% else %}nothing evaluated yet{% endif %}
+    </div>
+  </div>
+
+  {# 3. review backlog — sparkline of how severe the reasons are #}
+  <div class="tile t-warn">
+    <div class="tilehead">
+      <div>
+        <div class="value" data-count="{{ ov.needs_review }}">{{ ov.needs_review }}</div>
+        <div class="label">Human review pending</div>
+      </div>
+      {% if ov.review_mix | sum %}
+      {% set rmax = ov.review_mix | max %}
+      <div class="mini spark" style="--k: #f8dda0; --k2: var(--st-warn)"
+           role="img" aria-label="Review reasons: {{ ov.review_mix[0] }} with no files, {{ ov.review_mix[1] }} incomplete, {{ ov.review_mix[2] }} other">
+        {% for n in ov.review_mix %}
+        <i class="{{ 'hi' if n == rmax and n }}" style="--h: {{ (n / rmax * 100) if rmax else 0 }}"></i>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="sub">no files &middot; incomplete &middot; other</div>
+  </div>
+
+  {# 4. highest score — bar against the 100 maximum #}
+  <div class="tile">
+    <div class="tilehead">
+      <div>
+        <div class="value">
+          {% if ov.evaluated %}<span data-count="{{ ov.max_score }}" data-dp="1">{{ ov.max_score }}</span><span class="unit">/100</span>
+          {% else %}&mdash;{% endif %}
+        </div>
+        <div class="label">Highest score so far</div>
+      </div>
+    </div>
+    {% if ov.evaluated %}
+    <div class="meter" role="img" aria-label="{{ ov.max_score }} out of 100">
+      <span style="width: {{ ov.max_score }}%"></span>
+    </div>
+    {% endif %}
+    <div class="sub">
+      {% if ov.top_ref %}
+        <a href="/scorecards/{{ ov.top_ref }}">{{ ov.top_ref }}</a> &middot;
+        mean {{ ov.mean_score }}, median {{ ov.median_score }}
+      {% else %}no scores yet{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if ov.evaluated %}
+<div class="grid k2 mt">
+
+  {# ---- score distribution ------------------------------------------------
+     Bands are counts of one population and they sum to it, so part-to-whole is
+     truthful here. Ordered bands, so a ramp light to dark rather than a
+     categorical rainbow that would imply the bands are unrelated.
+     Drawn as SVG arcs, not a conic-gradient: a gradient has no interpolatable
+     stops, so it can never animate and cannot be hovered per segment. Each
+     segment here is its own element, placed by rotation with its
+     stroke-dashoffset left free to sweep. ---------------------------------- #}
+  <div class="card">
+    <h2>Score distribution
+      <span class="note">share of the {{ ov.evaluated }} evaluated</span></h2>
+    <div class="donut-wrap">
+      <div class="donut">
+        <svg viewBox="0 0 200 200" role="img"
+             aria-label="Score distribution across {{ ov.evaluated }} evaluated submissions">
+          <circle class="track" cx="100" cy="100" r="{{ DONUT_R }}"/>
+          {% for slice in ov.histogram_pie %}
+          {% if slice.count %}
+          <circle class="seg" cx="100" cy="100" r="{{ DONUT_R }}"
+                  stroke="var(--ramp-{{ slice.step }})"
+                  stroke-dasharray="{{ slice.dash }} {{ slice.gap }}"
+                  stroke-dashoffset="0"
+                  style="--rot: {{ slice.rot }}deg; --len: {{ slice.len }}">
+            <title>{{ slice.label }}: {{ slice.count }} submission(s), {{ slice.pct }}%</title>
+          </circle>
+          {% endif %}
+          {% endfor %}
+        </svg>
+        <div class="hub">
+          <div class="n">{{ ov.evaluated }}</div>
+          <div class="l">scored</div>
+        </div>
+      </div>
+      <div class="donut-key">
+        {% for slice in ov.histogram_pie %}
+        <div class="row {{ 'zero' if not slice.count }}">
+          <span class="sw" style="background: var(--ramp-{{ slice.step }})"></span>
+          <span class="lb">{{ slice.label }}</span>
+          <span class="ct">{{ slice.count }}</span>
+          <span class="pc">{{ slice.pct }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <p class="tiny muted mt mb0">
+      Darker slices sit higher on the scale. Five bands rather than individual
+      scores, because five bins read cleanly at this sample size and ten do not.
+    </p>
+  </div>
+
+  {# ---- criterion means ---------------------------------------------------
+     Four means out of 25 each are a comparison, not shares of one total, so a
+     pie would invent a relationship that does not exist. Vertical bars with a
+     ghost bar behind carrying the maximum, which is what makes "18 out of 25"
+     legible without reading the axis. ------------------------------------- #}
+  <div class="card">
+    <h2>Mean score by criterion
+      <span class="note">each against its own maximum of 25</span></h2>
+    <div class="vbars">
+      {% for g in ov.criterion_gauges %}
+      <div class="vbar">
+        <div class="stack" title="{{ g.name }}: mean {{ g.value }} of {{ g.max }}"
+             style="--k: var(--c-{{ g.hue }}); --pct: {{ g.pct }}">
+          <span class="ghost"></span>
+          <span class="fill">
+            <span class="val">{{ g.value }}</span>
+          </span>
+        </div>
+        <div class="cap">
+          <div class="cn">{{ g.short }}</div>
+          <div class="cp">{{ '%.0f'|format(g.pct) }}% of max</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="tiny muted mt mb0">
+      The faint block behind each bar is the 25-point maximum. A criterion low
+      across the whole intake usually means the form question was widely
+      misunderstood, not that every idea was weak on it.
+    </p>
+  </div>
+</div>
+{% else %}
+<div class="card mt">
+  <h2>No submissions evaluated yet</h2>
+  <p class="small">
+    {% if ov.total_submissions %}
+      {{ ov.total_submissions }} submission(s) are ingested but none have been
+      scored. Run the scoring stage from the command line:
+    {% else %}
+      No submissions have been ingested. Place one folder per submission in
+      <code class="mono">data/submissions/</code>, then run:
+    {% endif %}
+  </p>
+  <pre class="small mono" style="padding:0.8rem;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);overflow-x:auto">python cag.py ingest
+python cag.py map
+python cag.py score
+python cag.py cluster</pre>
+</div>
+{% endif %}
+
+{# ---- composition of the intake --------------------------------------- #}
+<div class="grid k3 mt">
+  {% for heading, data, hint in [
+      ('By thematic area', ov.by_theme, 'form field 2.1'),
+      ('By development stage', ov.by_stage, 'form field 2.4'),
+      ('By completeness', ov.by_completeness, 'mandatory fields'),
+      ('By evidence strength', ov.by_evidence_strength, 'results versus claims'),
+  ] %}
+  {% if data %}
+  <div class="card">
+    <h2>{{ heading }} <span class="note">{{ hint }}</span></h2>
+    <div class="chart">
+      {% set biggest = data.values() | max %}
+      {% for key, count in data.items() %}
+      <div class="chart-row wide">
+        <div class="rl" title="{{ key }}">{{ key }}</div>
+        <div class="track" style="height: 12px">
+          <div class="bar" style="width: {{ count / biggest * 100 }}%"></div>
+        </div>
+        <div class="rv" style="min-width: 2rem">{{ count }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+{% endblock %}

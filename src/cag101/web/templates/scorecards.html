@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}Scorecards{% endblock %}
+
+{% block content %}
+
+<div class="workhead">
+  <div>
+    <div class="crumb">CAG 101 Innovation Ideas Initiative</div>
+    <h1>Scorecards</h1>
+  </div>
+  {# Page-level actions belong in the header, not on the filter row: there they
+     compete with the filters for a single line and are the first thing to fall
+     out of frame when the panel is open. Here they wrap instead of clipping. #}
+  <div style="display:flex; gap:0.5rem; align-items:center">
+    <a class="btn secondary" href="/export.csv?{{ query_string }}">Download CSV</a>
+    <a class="btn" href="/export.xlsx">Download Excel</a>
+  </div>
+</div>
+
+{# ---- one filter row, on one line -------------------------------------- #}
+<div class="card" style="padding: 0.85rem 1rem">
+  <div class="filterbar">
+    <form class="filters" method="get" action="/scorecards">
+      <div class="field grow">
+        <label for="q">Search</label>
+        <input type="text" id="q" name="q" value="{{ filters.q }}"
+               placeholder="reference, title{% if can_see_identity %} or office{% endif %}">
+      </div>
+      <div class="field">
+        <label for="formation">Stream</label>
+        <select id="formation" name="formation">
+          <option value="">All streams</option>
+          {% for key, label in formation_labels.items() %}
+          <option value="{{ key }}" {{ 'selected' if filters.formation == key }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="sort">Sort</label>
+        <select id="sort" name="sort">
+          <option value="total" {{ 'selected' if filters.sort == 'total' }}>Score, high to low</option>
+          <option value="ref" {{ 'selected' if filters.sort == 'ref' }}>Reference</option>
+          <option value="title" {{ 'selected' if filters.sort == 'title' }}>Title</option>
+        </select>
+      </div>
+      {# review state is a toggle, not a third dropdown #}
+      <input type="hidden" name="review" value="{{ filters.review }}">
+      <div class="field">
+        <label>&nbsp;</label>
+        <button type="submit">Apply</button>
+      </div>
+    </form>
+  </div>
+
+  <p class="tiny muted" style="margin: 0.7rem 0 0">
+    Showing <strong>{{ cards|length }}</strong> of {{ total_count }} submission(s).
+    Each criterion cell carries <strong>Evidence</strong> for the reasoning and
+    the quoted material behind the mark, and <strong>Edit</strong> to amend it
+    against your name.
+  </p>
+</div>
+
+{# ---- the table --------------------------------------------------------- #}
+<div class="table-wrap pinned">
+  <table>
+    <thead>
+      <tr>
+        <th class="col-ref">Ref</th>
+        <th class="col-title">Submission</th>
+        {% for criterion in rubric.criteria %}
+        <th class="crit" style="--k: var(--c-{{ CRITERION_HUE.get(criterion.key, 'innovation') }})"
+            title="{{ criterion.name }} — {{ criterion.scheme_focus }}">
+          <span class="cn">{{ CRITERION_SHORT.get(criterion.key, criterion.name) }}</span>
+          <span class="cm">out of {{ criterion.weight }}</span>
+        </th>
+        {% endfor %}
+        <th class="num total-head">Total<br><span class="cm" style="font-weight:450">out of 100</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for card in cards %}
+      <tr data-ref="{{ card.ref }}"
+          class="{{ 'approved' if card.is_approved else ('below' if card.below_threshold else '') }}">
+        <td class="col-ref nowrap">
+          <a href="/scorecards/{{ card.ref }}">{{ card.ref }}</a>
+          {% if card.rank_overall %}
+          <div class="tiny muted" style="margin-top:0.15rem">rank {{ card.rank_overall }}</div>
+          {% endif %}
+        </td>
+        <td class="col-title">
+          <a href="/scorecards/{{ card.ref }}">{{ card.title or card.folder_name }}</a>
+          <div class="tiny muted" style="margin-top:0.2rem">
+            {{ formation_labels.get(card.formation_category, card.formation_category) }}
+            {%- if card.thematic_area and card.thematic_area != 'unclear' %} · theme {{ card.thematic_area }}{% endif %}
+            {%- if card.development_stage and card.development_stage != 'not_stated' %}
+            · {{ stage_labels.get(card.development_stage, card.development_stage)|lower }}{% endif %}
+          </div>
+
+          {# One control, one state. Everything else the submission carries is on
+             its own scorecard page; a row of five badges made the column noise. #}
+          <div style="margin-top:0.4rem">
+            {% if can_override %}
+            <button type="button" class="review-pill"
+                    data-review="/scorecards/{{ card.ref }}/review"
+                    data-state="{{ 'approved' if card.is_approved else 'pending' }}"
+                    aria-pressed="{{ 'true' if card.is_approved else 'false' }}">
+              <svg aria-hidden="true">
+                <use href="{{ '#i-tick' if card.is_approved else '#i-clock' }}"/>
+              </svg>
+              <span class="txt">{{ 'Approved' if card.is_approved else 'Pending review' }}</span>
+            </button>
+            {% else %}
+            <span class="review-pill" data-state="{{ 'approved' if card.is_approved else 'pending' }}">
+              <svg aria-hidden="true">
+                <use href="{{ '#i-tick' if card.is_approved else '#i-clock' }}"/>
+              </svg>
+              <span class="txt">{{ 'Approved' if card.is_approved else 'Pending review' }}</span>
+            </span>
+            {% endif %}
+            <span class="review-by">
+              {%- if card.is_approved and card.review_reviewer -%}
+                by {{ card.review_reviewer }}
+                {%- if card.review_decided_at %} on {{ card.review_decided_at|ist }}{% endif -%}
+              {%- endif -%}
+            </span>
+          </div>
+        </td>
+
+        {% for criterion in rubric.criteria %}
+        {% set view = card.criterion(criterion.key) %}
+        {% set hue = CRITERION_HUE.get(criterion.key, 'innovation') %}
+        <td class="crit" data-criterion="{{ criterion.key }}"
+            style="--k: var(--c-{{ hue }})">
+          {% if card.evaluated and view %}
+            <div class="sv">{{ '%.1f'|format(view.effective_score) }}</div>
+            <div class="cue" aria-hidden="true">
+              <i style="width: {{ (view.effective_score / criterion.weight * 100) if criterion.weight else 0 }}%"></i>
+            </div>
+            <div class="acts">
+              <button class="why" type="button"
+                      data-why="/scorecards/{{ card.ref }}/why/{{ criterion.key }}"
+                      aria-label="Evidence behind the {{ criterion.name }} score of {{ '%.1f'|format(view.effective_score) }} out of {{ criterion.weight }} for {{ card.ref }}">
+                Evidence
+              </button>
+              {% if can_override %}
+              <button class="why edit" type="button"
+                      data-edit="/scorecards/{{ card.ref }}/override"
+                      data-ref="{{ card.ref }}"
+                      data-criterion="{{ criterion.key }}"
+                      data-criterion-name="{{ criterion.name }}"
+                      data-max="{{ criterion.weight }}"
+                      data-score="{{ '%.1f'|format(view.effective_score) }}"
+                      data-machine="{{ '%.1f'|format(view.machine_score) }}"
+                      data-note="{{ view.override_justification }}"
+                      aria-label="Edit the {{ criterion.name }} score for {{ card.ref }}">
+                <svg aria-hidden="true"><use href="#i-pen"/></svg> Edit
+              </button>
+              {% endif %}
+            </div>
+          {% else %}
+            <span class="muted">—</span>
+          {% endif %}
+        </td>
+        {% endfor %}
+
+        <td class="num total-cell">
+          {% if card.evaluated %}<span class="tv">{{ '%.1f'|format(card.total) }}</span>
+          {% else %}<span class="muted tiny nowrap">not scored</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not cards %}
+      <tr><td colspan="7" class="muted" style="padding:2rem; text-align:center">
+        No submissions match these filters.
+        <a href="/scorecards">Clear the filters</a> to see all {{ total_count }}.
+      </td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<p class="tiny muted mt">
+  Reference and submission stay pinned while the score columns scroll. A cream
+  row scores below {{ QUALIFY_AT|int }} &mdash; a reading aid, not a rejection,
+  since the scheme sets no cut-off. A green row has been approved by an
+  evaluator. Cells show the effective score: the amended mark where one exists,
+  otherwise the assessed one.
+</p>
+
+{# ---- evidence dialog. One dialog, contents fetched per click. --------- #}
+<dialog class="sheet" id="whySheet" aria-label="Score evidence and reasoning">
+  <div id="whyBody"></div>
+</dialog>
+
+{% include "_editsheet.html" %}
+
+<script>
+(function () {
+  var THRESHOLD = {{ QUALIFY_AT }};
+
+  /* ---- one helper for both dialogs ------------------------------------- */
+  function opener(dialog) {
+    return {
+      open: function () {
+        if (dialog.open) return;
+        if (typeof dialog.showModal === 'function') { dialog.showModal(); }
+        else { dialog.setAttribute('open', ''); }   /* no <dialog> support */
+      },
+      close: function () { if (dialog.open) dialog.close(); }
+    };
+  }
+
+  /* ---- rationale ------------------------------------------------------- */
+  var whySheet = document.getElementById('whySheet');
+  var whyBody = document.getElementById('whyBody');
+  var why = opener(whySheet);
+
+  function showWhy(html) {
+    whyBody.innerHTML = html;
+    why.open();
+    var closer = whyBody.querySelector('[data-close]');
+    if (closer) { closer.addEventListener('click', why.close); closer.focus(); }
+  }
+
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest ? ev.target.closest('.why:not(.edit)') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    showWhy('<div class="sheet-head"><div class="micro">Loading evidence...</div></div>');
+    fetch(btn.getAttribute('data-why'), { credentials: 'same-origin' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(showWhy)
+      .catch(function (err) {
+        showWhy('<div class="sheet-head"><div><h2 style="font-size:var(--t-md)">Could not load the evidence</h2>'
+           + '<div class="tiny muted">' + String(err.message || err) + '</div></div>'
+           + '<button class="closer" type="button" data-close aria-label="Close">&times;</button></div>'
+           + '<div class="sheet-body"><p class="small muted mb0">The scorecard page for this '
+           + 'submission still shows every sub-score and its evidence.</p></div>');
+      });
+  });
+  whySheet.addEventListener('click', function (ev) { if (ev.target === whySheet) why.close(); });
+
+  /* ---- review sign-off ------------------------------------------------- */
+  document.addEventListener('click', function (ev) {
+    var pill = ev.target.closest ? ev.target.closest('.review-pill[data-review]') : null;
+    if (!pill) return;
+    var next = pill.getAttribute('data-state') === 'approved' ? 'pending' : 'approved';
+    pill.disabled = true;
+
+    var body = new URLSearchParams();
+    body.set('decision', next);
+
+    fetch(pill.getAttribute('data-review'), {
+      method: 'POST', credentials: 'same-origin', body: body,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'fetch'
+      }
+    })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        var approved = data.decision === 'approved';
+        pill.setAttribute('data-state', data.decision);
+        pill.setAttribute('aria-pressed', String(approved));
+        pill.querySelector('.txt').textContent = approved ? 'Approved' : 'Pending review';
+        pill.querySelector('use').setAttribute('href', approved ? '#i-tick' : '#i-clock');
+
+        var by = pill.parentNode.querySelector('.review-by');
+        if (by) { by.textContent = approved ? 'by ' + data.reviewer + ', just now' : ''; }
+
+        var row = pill.closest('tr');
+        row.classList.toggle('approved', approved);
+        if (approved) { row.classList.remove('below'); }
+        else { row.classList.toggle('below', row.getAttribute('data-below') === '1'); }
+
+        /* restart the animation even when the class is already there */
+        pill.classList.remove('flip');
+        row.classList.remove('just-approved');
+        void pill.offsetWidth;
+        pill.classList.add('flip');
+        if (approved) { row.classList.add('just-approved'); }
+      })
+      .catch(function (err) {
+        window.alert('The decision could not be saved: ' + (err.message || err));
+      })
+      .then(function () { pill.disabled = false; });
+  });
+
+  /* ---- an amended score, repainted in place -------------------------- */
+  /* The dialog lives in _editsheet.html and only reports what changed; the
+     table decides what to repaint. Repainting beats reloading: at 400 rows a
+     reload loses the reader's scroll position and their filters. */
+  document.addEventListener('score-edited', function (ev) {
+    var data = ev.detail.data;
+    var source = ev.detail.source;
+    var cell = source ? source.closest('td.crit') : null;
+    if (!cell) return;
+    var row = cell.closest('tr');
+
+    var sv = cell.querySelector('.sv');
+    if (sv) { sv.textContent = data.score.toFixed(1); }
+    var bar = cell.querySelector('.cue > i');
+    if (bar) { bar.style.width = (data.max ? data.score / data.max * 100 : 0) + '%'; }
+
+    var totalCell = row.querySelector('.total-cell');
+    var tv = totalCell ? totalCell.querySelector('.tv') : null;
+    if (tv) { tv.textContent = data.total.toFixed(1); }
+
+    /* the row tint follows the new total */
+    var below = data.total < THRESHOLD;
+    row.setAttribute('data-below', below ? '1' : '0');
+    if (!row.classList.contains('approved')) { row.classList.toggle('below', below); }
+
+    cell.classList.remove('just-changed');
+    if (totalCell) { totalCell.classList.remove('just-changed'); }
+    void cell.offsetWidth;
+    cell.classList.add('just-changed');
+    if (totalCell) { totalCell.classList.add('just-changed'); }
+  });
+
+  /* remember the starting below-threshold state, so un-approving restores it */
+  var rows = document.querySelectorAll('tbody tr[data-ref]');
+  for (var i = 0; i < rows.length; i++) {
+    rows[i].setAttribute('data-below', rows[i].classList.contains('below') ? '1' : '0');
+  }
+})();
+</script>
+
+{% endblock %}

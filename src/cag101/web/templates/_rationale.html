@@ -1,0 +1,111 @@
+{# Rationale fragment: why one criterion scored what it did.
+   Loaded on demand into the dialog on the scorecards table.
+
+   Bullets, not paragraphs. An evaluator reading four criteria across hundreds
+   of submissions needs the findings and their source at a glance; prose makes
+   them hunt. The split is mechanical and lossless — every sentence of the
+   recorded rationale becomes one bullet, in order, nothing dropped or
+   rewritten. Each bullet's supporting quote sits directly under it with its
+   file and locator, so a finding and its evidence are never separated. #}
+<div class="sheet-head" style="--k: var(--c-{{ hue }})">
+  <div>
+    <div class="micro">{{ card.ref }} &middot; evidence and reasoning</div>
+    <h2 style="font-size: var(--t-md); margin-top: 0.2rem">{{ spec.name }}</h2>
+    <div class="tiny muted" style="margin-top: 0.15rem">{{ spec.scheme_focus }}</div>
+  </div>
+  <div class="right nowrap">
+    {% if view %}
+    <div class="hero-score" style="justify-content: flex-end">
+      <span class="n" style="font-size: var(--t-xl)">{{ '%.1f'|format(view.effective_score) }}</span>
+      <span class="of">/ {{ spec.weight }}</span>
+    </div>
+    {% if view.is_overridden %}
+    <div class="tiny"><span class="badge warn">amended</span>
+      assessed at {{ '%.1f'|format(view.machine_score) }}</div>
+    {% endif %}
+    {% if can_override and view.sub_scores %}
+    <button class="why edit" type="button" style="margin-top:0.4rem"
+            data-edit="/scorecards/{{ card.ref }}/override"
+            data-ref="{{ card.ref }}"
+            data-criterion="{{ spec.key }}"
+            data-criterion-name="{{ spec.name }}"
+            data-max="{{ spec.weight }}"
+            data-score="{{ '%.1f'|format(view.effective_score) }}"
+            data-machine="{{ '%.1f'|format(view.machine_score) }}"
+            data-note="{{ view.override_justification }}">
+      <svg aria-hidden="true"><use href="#i-pen"/></svg> Edit score
+    </button>
+    {% endif %}
+    {% endif %}
+    <button class="closer" type="button" data-close aria-label="Close">&times;</button>
+  </div>
+</div>
+
+<div class="sheet-body" style="--k: var(--c-{{ hue }})">
+  {% if not view or not view.sub_scores %}
+    <p class="muted small mb0">
+      This submission has not been scored on this criterion.
+      {% if card.status == 'no_files_submitted' %}
+      The submission folder contained no files, so there was nothing to assess.
+      {% endif %}
+    </p>
+  {% else %}
+
+  {% for sub in view.sub_scores %}
+  {% set pct = (sub.score / sub.max_score * 100) if sub.max_score else 0 %}
+  <div class="sub-block">
+    <div class="sh">
+      <span class="sn">{{ sub.sub_name }}</span>
+      <span class="ss">
+        {{ '%.1f'|format(sub.score) }} <span class="muted tiny">/ {{ sub.max_score }}</span>
+        {% if sub.band %}
+        <span class="badge {{ 'good' if sub.band in ['Strong','Exceptional'] else ('warn' if sub.band == 'Weak' else ('critical' if sub.band == 'Absent' else 'grey')) }}">{{ sub.band }}</span>
+        {% endif %}
+      </span>
+    </div>
+
+    <div class="cue" style="height:3px;background:var(--grid);border-radius:999px;margin:0.45rem 0 0.2rem;overflow:hidden">
+      <i style="display:block;height:100%;width:{{ pct }}%;background:var(--c-{{ hue }});border-radius:999px"></i>
+    </div>
+
+    <ul class="findings">
+      {% for point in sub.rationale|bullets %}
+      <li>{{ point }}</li>
+      {% endfor %}
+    </ul>
+
+    {% if sub.evidence %}
+    <ul class="sources">
+      {% for e in sub.evidence %}
+      <li>
+        <span class="q">&ldquo;{{ e.quote }}&rdquo;</span>
+        <span class="src">{{ e.source_file }}{% if e.locator %} &middot; {{ e.locator }}{% endif %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      <div class="no-evidence">
+        No supporting quote found in the submission for this sub-criterion, so
+        the score is capped under the rubric's evidence policy.
+      </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {# The rule actually applied — so a committee can check the score against the
+     scheme rather than taking the number on trust. #}
+  <div class="rule-cite">
+    <strong>Rule applied.</strong>
+    {{ spec.name }} carries <strong>{{ spec.weight }} of {{ rubric.total }}</strong> marks
+    under {{ rubric.name }}. Bands:
+    {% for b in bands %}{{ b.name }} {{ (b.lo * 100)|int }}–{{ (b.hi * 100)|int }}%{% if not loop.last %} &middot; {% endif %}{% endfor %}.
+    A sub-score above Adequate requires a verbatim quote; without one it is
+    reduced automatically.
+  </div>
+
+  <p class="tiny muted mt mb0">
+    <a href="/scorecards/{{ card.ref }}">Open the full scorecard for {{ card.ref }}</a>
+    to see all four criteria, the file inventory and the flags.
+  </p>
+  {% endif %}
+</div>
