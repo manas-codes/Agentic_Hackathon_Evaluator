@@ -121,6 +121,45 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
+# Response headers a departmental VAPT or GIGW review expects to find. None of
+# these are set by the platform, and their absence is the first thing an
+# automated scan reports.
+#
+# The policy allows inline script and style because the portal uses inline
+# <script> blocks and style="" attributes throughout; tightening that needs
+# per-request nonces, which is worth doing before a public deployment but is
+# not what protects this one. What the policy does buy is the part that
+# matters here: no script, style, font or image may be loaded from anywhere
+# but this origin, and the page cannot be framed - so a stolen session cannot
+# be driven by an injected third-party script or a clickjacking overlay.
+_CSP = "; ".join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "form-action 'self'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+])
+
+_SECURITY_HEADERS = {
+    "Content-Security-Policy": _CSP,
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "same-origin",
+    "Permissions-Policy": "geolocation=(), camera=(), microphone=(), interest-cohort=()",
+}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for name, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    return response
+
 
 # ---------------------------------------------------------------------------
 # Session helpers
